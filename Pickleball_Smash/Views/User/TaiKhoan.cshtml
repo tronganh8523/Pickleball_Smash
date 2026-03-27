@@ -1,0 +1,170 @@
+@model Pickleball_Smash.Models.NguoiDung
+
+@{
+    ViewData["Title"] = "Tài Khoản";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/user-tai-khoan.css" asp-append-version="true" />
+}
+
+<div class="container-fluid py-5">
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="card shadow mb-4">
+                <div class="card-body text-center">
+                    <div class="user-avatar-placeholder">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h5>@(string.IsNullOrWhiteSpace(Model.HoTen) ? Model.TenDangNhap : Model.HoTen)</h5>
+                    <p class="text-muted">@Model.Email</p>
+                    <p class="text-muted">@Model.SDT</p>
+                    <p class="badge bg-info">@Model.VaiTro</p>
+                </div>
+            </div>
+
+            <div class="list-group">
+                <a asp-controller="Home" asp-action="Index" class="list-group-item list-group-item-action">
+                    <i class="fas fa-home"></i> Trang Chủ
+                </a>
+                <a asp-controller="User" asp-action="LichSuDatSan" class="list-group-item list-group-item-action">
+                    <i class="fas fa-history"></i> Lịch Sử Đặt Sân
+                </a>
+                <span class="list-group-item list-group-item-action active">
+                    <i class="fas fa-user-cog"></i> Tài Khoản
+                </span>
+                <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="list-group-item list-group-item-action text-start border-0 w-100">
+                        <i class="fas fa-sign-out-alt"></i> Đăng Xuất
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="m-0"><i class="fas fa-user"></i> Thông Tin Cá Nhân</h5>
+                </div>
+                <div class="card-body">
+                    @if (TempData["ErrorProfile"] != null)
+                    {
+                        <div class="alert alert-danger">@TempData["ErrorProfile"]</div>
+                    }
+
+                    @if (TempData["SuccessProfile"] != null)
+                    {
+                        <div class="alert alert-success">@TempData["SuccessProfile"]</div>
+                    }
+
+                    <form asp-controller="User" asp-action="CapNhatHoSo" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Họ và Tên</label>
+                                <input type="text" class="form-control" name="HoTen" value="@Model.HoTen">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Giới Tính</label>
+                                <select class="form-select" name="GioiTinh">
+                                    <option value="">-- chọn --</option>
+                                    @if (Model.GioiTinh == "Nam")
+                                    {
+                                        <option value="Nam" selected>Nam</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="Nam">Nam</option>
+                                    }
+
+                                    @if (Model.GioiTinh == "Nữ")
+                                    {
+                                        <option value="Nữ" selected>Nữ</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="Nữ">Nữ</option>
+                                    }
+
+                                    @if (Model.GioiTinh == "Khác")
+                                    {
+                                        <option value="Khác" selected>Khác</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="Khác">Khác</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" name="Email" value="@Model.Email" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Số Điện Thoại</label>
+                                <input type="tel" class="form-control" name="SDT" value="@Model.SDT">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Ngày Tạo</label>
+                                <input type="text" class="form-control" value="@Model.NgayTao?.ToString("dd/MM/yyyy HH:mm")" readonly>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Cập Nhật Hồ Sơ
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-light">
+                    <h5 class="m-0"><i class="fas fa-lock"></i> Đổi Mật Khẩu</h5>
+                </div>
+                <div class="card-body">
+                    @if (TempData["ErrorPassword"] != null)
+                    {
+                        <div class="alert alert-danger">@TempData["ErrorPassword"]</div>
+                    }
+
+                    @if (TempData["SuccessPassword"] != null)
+                    {
+                        <div class="alert alert-success">@TempData["SuccessPassword"]</div>
+                    }
+
+                    <form asp-controller="User" asp-action="DoiMatKhau" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div class="mb-3">
+                            <label class="form-label">Mật Khẩu Hiện Tại</label>
+                            <input type="password" class="form-control" name="matKhauHienTai" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Mật Khẩu Mới</label>
+                            <input type="password" class="form-control" name="matKhauMoi" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}" required>
+                            <small class="form-text text-muted">Ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Xác Nhận Mật Khẩu Mới</label>
+                            <input type="password" class="form-control" name="xacNhanMatKhauMoi" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-key"></i> Đổi Mật Khẩu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

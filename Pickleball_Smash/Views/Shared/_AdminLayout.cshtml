@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="~/css/admin-layout.css" asp-append-version="true">
+    @RenderSection("Styles", required: false)
     </head>
     <body>
         @{
@@ -55,9 +56,21 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link @(currentController == "AdminDichVu" ? "active" : "")"
+                                   href="@Url.Action("Index", "AdminDichVu")">
+                                <i class="fas fa-concierge-bell"></i> Dịch Vụ
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link @(currentController == "AdminVoucher" ? "active" : "")"
                                    href="@Url.Action("Index", "AdminVoucher")">
                                 <i class="fas fa-ticket-alt"></i> Voucher
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(currentController == "AdminDonDatSan" ? "active" : "")"
+                                   href="@Url.Action("Index", "AdminDonDatSan")">
+                                <i class="fas fa-file-invoice"></i> Đơn Đặt Sân
                             </a>
                         </li>
                     </ul>
@@ -65,7 +78,7 @@
                     <h6 class="sidebar-heading">Quản trị viên</h6>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link @(currentController == "AdminUser" ? "active" : "")" href="#">
+                            <a class="nav-link @(currentController == "AdminUser" ? "active" : "")" href="@Url.Action("Index", "AdminUser")">
                                 <i class="fas fa-users-cog"></i> Quản Lý Tài Khoản
                             </a>
                         </li>
@@ -74,14 +87,17 @@
                     <h6 class="sidebar-heading">Hệ thống</h6>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="@Url.Action("Index", "Home")">
+                            <a class="nav-link" href="@Url.Action("LogoutAndGoHome", "Auth")">
                                 <i class="fas fa-arrow-left"></i> Quay lại Website
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="#">
-                                <i class="fas fa-sign-out-alt"></i> Đăng xuất
-                            </a>
+                            <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="nav-link text-danger btn btn-link w-100 text-start">
+                                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                                </button>
+                            </form>
                         </li>
                     </ul>
                 </div>
@@ -102,11 +118,16 @@
                                      height="35">
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                                <li><a class="dropdown-item" href="#">Đổi mật khẩu</a></li>
+                                <li><a class="dropdown-item" href="@Url.Action("AdminChangePassword", "Auth")">Đổi mật khẩu</a></li>
                                 <li>
                                     <hr class="dropdown-divider">
                                 </li>
-                                <li><a class="dropdown-item text-danger" href="#">Đăng xuất</a></li>
+                                <li>
+                                    <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="dropdown-item text-danger">Đăng xuất</button>
+                                    </form>
+                                </li>
                             </ul>
                         </div>
                     </div>

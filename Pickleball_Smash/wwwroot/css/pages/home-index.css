@@ -1,0 +1,12 @@
+/* Used by: Views/Home/Index.cshtml */
+
+.home-feature-section {
+    background: #f0f2f5;
+    border-radius: 10px;
+}
+
+.home-feature-icon {
+    font-size: 2rem;
+    color: #667eea;
+    margin-bottom: 1rem;
+}

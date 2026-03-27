@@ -1,0 +1,191 @@
+@model Pickleball_Smash.Models.SanPickleball
+
+@{
+    ViewData["Title"] = $"Đặt Sân {Model.TenSan}";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/user-dat-san.css" asp-append-version="true" />
+}
+
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="mb-4"><i class="fas fa-calendar-alt"></i> Đặt Sân @Model.TenSan</h1>
+
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="m-0">Thông Tin Đặt Sân</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Thông tin sân -->
+                    <div class="mb-4 p-3 booking-surface-card">
+                        <h6 class="mb-3">Sân Được Chọn</h6>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5>@Model.TenSan</h5>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-map-marker-alt"></i> @Model.ChiNhanh?.TenChiNhanh
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <h5 class="text-primary">@(Model.GiaCoBan?.ToString("N0") ?? "0") VNĐ/h</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form đặt sân -->
+                    <form asp-controller="User" asp-action="DatSan" method="post">
+                        <input type="hidden" name="sanId" value="@Model.SanID" />
+
+                        @if (TempData["Error"] != null)
+                        {
+                            <div class="alert alert-danger">@TempData["Error"]</div>
+                        }
+
+                        @if (TempData["Success"] != null)
+                        {
+                            <div class="alert alert-success">@TempData["Success"]</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Ngày Chơi</label>
+                            <input type="date" name="ngayChoi" class="form-control" required min="@DateOnly.FromDateTime(DateTime.Now).ToString("yyyy-MM-dd")">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Giờ Bắt Đầu</label>
+                                    <select name="gioBatDau" class="form-select" id="gioBatDau" required>
+                                        <option value="">-- Chọn --</option>
+                                        @for (var gio = 6; gio <= 23; gio++)
+                                        {
+                                            <option value="@gio">@($"{gio:00}:00")</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Giờ Kết Thúc</label>
+                                    <select name="gioKetThuc" class="form-select" id="gioKetThuc" required>
+                                        <option value="">-- Chọn --</option>
+                                        @for (var gio = 7; gio <= 24; gio++)
+                                        {
+                                            <option value="@gio">@($"{gio:00}:00")</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="alert alert-secondary mb-0">
+                                Các thông tin sẽ lưu theo DB: Sân, Ngày chơi, Giờ bắt đầu, Giờ kết thúc, Tổng tiền, Trạng thái đơn.
+                            </div>
+                        </div>
+
+                        <!-- Tóm tắt giá -->
+                        <div class="p-3 mb-4 booking-summary-box">
+                            <div class="row mb-2">
+                                <div class="col-6">Đơn giá (1 giờ)</div>
+                                <div class="col-6 text-end" id="donGia">@(Model.GiaCoBan?.ToString("N0") ?? "0") VNĐ</div>
+                            </div>
+                            <div class="row mb-2">
+                                <div class="col-6">Thời lượng</div>
+                                <div class="col-6 text-end" id="thoiLuong">0 giờ</div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-6"><strong>Tổng Tiền</strong></div>
+                                <div class="col-6 text-end"><strong id="tongCong" class="booking-total-value">@(Model.GiaCoBan?.ToString("N0") ?? "0") VNĐ</strong></div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-2">
+                            <i class="fas fa-check-circle"></i> Xác Nhận Đặt Sân
+                        </button>
+                        <a href="@Url.Action("DanhSachSan", "User")" class="btn btn-secondary btn-lg w-100">
+                            <i class="fas fa-times"></i> Hủy
+                        </a>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lưu ý -->
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle"></i> Lưu Ý</h6>
+                <ul class="mb-0">
+                    <li>Đơn đặt sân sẽ được xác nhận trong vòng 30 phút.</li>
+                    <li>Nếu không xác nhận được, tiền sẽ hoàn lại 100%.</li>
+                    <li>Hủy đơn trước 2 giờ sân được mở: Hoàn 100% tiền.</li>
+                    <li>Hủy đơn sau 2 giờ: Hoàn lại 50% tiền.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            var donGiaMotGio = @Model.GiaCoBan ?? 0;
+            var gioKetThucSelect = $('#gioKetThuc');
+            var allGioKetThucOptions = gioKetThucSelect.find('option').clone();
+
+            function capNhatGioKetThuc() {
+                var gioBatDau = parseInt($('#gioBatDau').val());
+                gioKetThucSelect.empty();
+                gioKetThucSelect.append('<option value="">-- Chọn --</option>');
+
+                if (!gioBatDau) {
+                    allGioKetThucOptions.each(function () {
+                        if ($(this).val()) {
+                            gioKetThucSelect.append($(this).clone());
+                        }
+                    });
+                    return;
+                }
+
+                allGioKetThucOptions.each(function () {
+                    var value = parseInt($(this).val());
+                    if (value && value >= gioBatDau + 1) {
+                        gioKetThucSelect.append($(this).clone());
+                    }
+                });
+            }
+
+            function tinhTien() {
+                var gioBatDau = parseInt($('#gioBatDau').val());
+                var gioKetThuc = parseInt($('#gioKetThuc').val());
+
+                if (!gioBatDau || !gioKetThuc) {
+                    $('#thoiLuong').text('0 giờ');
+                    $('#tongCong').text('0 VNĐ');
+                    return;
+                }
+
+                var soGioDat = gioKetThuc - gioBatDau;
+                if (soGioDat < 1) {
+                    $('#thoiLuong').text('Không hợp lệ');
+                    $('#tongCong').text('0 VNĐ');
+                    return;
+                }
+
+                var tongCong = donGiaMotGio * soGioDat;
+
+                $('#thoiLuong').text(soGioDat.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' giờ');
+                $('#tongCong').text(tongCong.toLocaleString('vi-VN') + ' VNĐ');
+            }
+
+            $('#gioBatDau').on('change', function () {
+                capNhatGioKetThuc();
+                tinhTien();
+            });
+
+            $('#gioKetThuc').on('change', tinhTien);
+            capNhatGioKetThuc();
+        });
+    </script>
+}

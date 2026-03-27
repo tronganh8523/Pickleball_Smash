@@ -1,0 +1,82 @@
+@model Pickleball_Smash.Models.NguoiDung
+
+@{
+    ViewData["Title"] = "Thêm Tài Khoản";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="h3 mb-4 text-dark">Thêm Tài Khoản</h1>
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white"><h6 class="m-0">Thông Tin Tài Khoản</h6></div>
+                <div class="card-body">
+                    <form asp-controller="AdminUser" asp-action="Create" method="post">
+                        <div asp-validation-summary="All" class="alert alert-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="TenDangNhap" class="form-label">Tên Đăng Nhập</label>
+                            <input asp-for="TenDangNhap" class="form-control" minlength="6" />
+                            <small class="form-text text-muted">Ít nhất 6 ký tự.</small>
+                            <span asp-validation-for="TenDangNhap" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="MatKhau" class="form-label">Mật Khẩu</label>
+                            <input asp-for="MatKhau" class="form-control" type="password" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}" />
+                            <small class="form-text text-muted">Ít nhất 8 ký tự, có chữ hoa, chữ thường và số.</small>
+                            <span asp-validation-for="MatKhau" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="HoTen" class="form-label">Họ Tên</label>
+                            <input asp-for="HoTen" class="form-control" />
+                            <span asp-validation-for="HoTen" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label">Email</label>
+                            <input asp-for="Email" class="form-control" type="email" required />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="SDT" class="form-label">Số Điện Thoại</label>
+                            <input asp-for="SDT" class="form-control" />
+                            <span asp-validation-for="SDT" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="GioiTinh" class="form-label">Giới Tính</label>
+                            <select asp-for="GioiTinh" class="form-select">
+                                <option value="">-- chọn --</option>
+                                <option value="Nam">Nam</option>
+                                <option value="Nữ">Nữ</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                            <span asp-validation-for="GioiTinh" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="VaiTro" class="form-label">Vai Trò</label>
+                            <select asp-for="VaiTro" class="form-select">
+                                <option value="">-- chọn --</option>
+                                <option value="Admin">Admin</option>
+                                <option value="User">User</option>
+                            </select>
+                            <span asp-validation-for="VaiTro" class="text-danger"></span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Lưu</button>
+                        <a asp-controller="AdminUser" asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

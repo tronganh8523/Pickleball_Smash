@@ -1,0 +1,44 @@
+@{
+    ViewData["Title"] = "Đăng nhập";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="m-0"><i class="fas fa-sign-in-alt"></i> Đăng nhập hệ thống</h5>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.Error != null)
+                    {
+                        <div class="alert alert-danger">@ViewBag.Error</div>
+                    }
+
+                    <form asp-controller="Auth" asp-action="Login" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div class="mb-3">
+                            <label class="form-label">Tên đăng nhập</label>
+                            <input name="tenDangNhap" class="form-control" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Mật khẩu</label>
+                            <input name="matKhau" class="form-control" type="password" required />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-lock"></i> Đăng nhập
+                        </button>
+                    </form>
+
+                    <p class="text-muted small mt-3 mb-0">
+                        Hệ thống hiện hỗ trợ 2 vai trò đăng nhập: Admin và User.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

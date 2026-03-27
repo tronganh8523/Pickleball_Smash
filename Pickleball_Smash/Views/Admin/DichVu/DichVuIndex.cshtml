@@ -1,0 +1,73 @@
+@model IEnumerable<Pickleball_Smash.Models.DichVuPhuTro>
+
+@{
+    ViewData["Title"] = "Quản Lý Dịch Vụ";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0 text-dark"><i class="fas fa-concierge-bell"></i> Danh Sách Dịch Vụ</h1>
+        </div>
+        <div class="col-md-4 text-right">
+            <a asp-controller="AdminDichVu" asp-action="Create" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Thêm Dịch Vụ Mới
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Tên Dịch Vụ</th>
+                            <th>Loại</th>
+                            <th>Giá</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Any())
+                        {
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td>@item.TenDichVu</td>
+                                    <td>@item.LoaiDichVu</td>
+                                    <td>@(item.Gia?.ToString("N0") ?? "0") VNĐ</td>
+                                    <td>
+                                        <a asp-controller="AdminDichVu" asp-action="Edit" asp-route-id="@item.DichVuID" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                                        <a asp-controller="AdminDichVu" asp-action="Delete" asp-route-id="@item.DichVuID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Không có dịch vụ nào. <a asp-controller="AdminDichVu" asp-action="Create">Tạo dịch vụ mới</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

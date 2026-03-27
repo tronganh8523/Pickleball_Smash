@@ -3,6 +3,10 @@
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/admin-dashboard.css" asp-append-version="true" />
+}
+
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-md-12">
@@ -52,41 +56,7 @@
     </div>
 
     <div class="col-md-6">
-        <a href="@Url.Action("Index", "Home")" class="btn btn-secondary btn-block mb-3">
+        <a href="@Url.Action("LogoutAndGoHome", "Auth")" class="btn btn-secondary btn-block mb-3">
             <i class="fas fa-door-open"></i> Trang Chủ
         </a>
     </div>
-
-    <style>
-            .border-left-primary {
-                border-left: 0.25rem solid #4e73df !important;
-            }
-
-            .border-left-success {
-                border-left: 0.25rem solid #1cc88a !important;
-            }
-
-            .border-left-info {
-                border-left: 0.25rem solid #36b9cc !important;
-            }
-
-            .border-left-warning {
-                border-left: 0.25rem solid #f6c23e !important;
-            }
-
-            .text-primary {
-                color: #4e73df !important;
-            }
-
-            .text-success {
-                color: #1cc88a !important;
-            }
-
-            .text-info {
-                color: #36b9cc !important;
-            }
-
-            .text-warning {
-                color: #f6c23e !important;
-            }
-    </style>

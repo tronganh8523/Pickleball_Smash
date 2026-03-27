@@ -1,0 +1,12 @@
+/* Used by: Views/User/DatSan.cshtml */
+
+.booking-surface-card,
+.booking-summary-box {
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.booking-total-value {
+    font-size: 1.2rem;
+    color: #667eea;
+}

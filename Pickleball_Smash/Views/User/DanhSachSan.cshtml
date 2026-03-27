@@ -1,0 +1,152 @@
+@model IEnumerable<Pickleball_Smash.Models.SanPickleball>
+
+@{
+    ViewData["Title"] = "Danh Sách Sân - Pickleball Smash";
+    var danhSachChiNhanh = (IEnumerable<string>)(ViewBag.DanhSachChiNhanh ?? new List<string>());
+    var danhSachLoaiSan = (IEnumerable<string>)(ViewBag.DanhSachLoaiSan ?? new List<string>());
+    var diemTrungBinhTheoSan = (IDictionary<int, double>)(ViewBag.DiemTrungBinhTheoSan ?? new Dictionary<int, double>());
+    var soLuongDanhGiaTheoSan = (IDictionary<int, int>)(ViewBag.SoLuongDanhGiaTheoSan ?? new Dictionary<int, int>());
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/user-danh-sach-san.css" asp-append-version="true" />
+}
+
+<div class="container-fluid py-5">
+    <h1 class="mb-4"><i class="fas fa-th"></i> Danh Sách Sân Pickleball</h1>
+
+    <!-- Bộ Lọc -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Tìm Kiếm Sân</label>
+                    <input type="text" class="form-control" placeholder="Nhập tên sân..." id="timKiem">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Chi Nhánh</label>
+                    <select class="form-select" id="chiNhanh">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var chiNhanh in danhSachChiNhanh)
+                        {
+                            <option value="@chiNhanh">@chiNhanh</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Loại Sân</label>
+                    <select class="form-select" id="loaiSan">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var loaiSan in danhSachLoaiSan)
+                        {
+                            <option value="@loaiSan">@loaiSan</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danh Sách Sân -->
+    <div class="row">
+        @if (Model.Any())
+        {
+            @foreach (var san in Model)
+            {
+                var trangThai = san.TrangThai?.Trim() ?? string.Empty;
+                var isMoCua = trangThai.Equals("Mở", StringComparison.OrdinalIgnoreCase)
+                    || trangThai.Equals("Hoạt động", StringComparison.OrdinalIgnoreCase)
+                    || trangThai.Equals("Open", StringComparison.OrdinalIgnoreCase);
+                var diemTrungBinh = diemTrungBinhTheoSan.ContainsKey(san.SanID) ? diemTrungBinhTheoSan[san.SanID] : 0;
+                var soLuongDanhGia = soLuongDanhGiaTheoSan.ContainsKey(san.SanID) ? soLuongDanhGiaTheoSan[san.SanID] : 0;
+
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100 san-card">
+                        <input type="hidden" class="san-chi-nhanh" value="@san.ChiNhanh?.TenChiNhanh" />
+                        <input type="hidden" class="san-loai" value="@san.LoaiSan" />
+                        <div class="user-court-card-banner">
+                            <i class="fas fa-th"></i>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">@san.TenSan</h5>
+                            <p class="text-muted">
+                                <i class="fas fa-map-marker-alt"></i> @san.ChiNhanh?.TenChiNhanh
+                            </p>
+                            <p class="text-truncate">@san.MoTa</p>
+                            
+                            <div class="mb-2">
+                                <span class="badge bg-info">@san.LoaiSan</span>
+                                @if (isMoCua)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle"></i> Mở cửa
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times-circle"></i> Đóng cửa
+                                    </span>
+                                }
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <strong class="user-court-price">@(san.GiaCoBan?.ToString("N0") ?? "0") VNĐ/h</strong>
+                                <span class="badge bg-warning text-dark">⭐ @diemTrungBinh.ToString("0.0")</span>
+                            </div>
+                            <small class="text-muted">@soLuongDanhGia đánh giá</small>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a asp-controller="User" asp-action="ChiTietSan" asp-route-id="@san.SanID" 
+                               class="btn btn-primary w-100 mb-2">
+                                <i class="fas fa-eye"></i> Xem Chi Tiết
+                            </a>
+                            @if (isMoCua)
+                            {
+                                <a asp-controller="User" asp-action="DatSan" asp-route-id="@san.SanID" 
+                                   class="btn btn-success w-100">
+                                    <i class="fas fa-calendar-alt"></i> Đặt Sân Ngay
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle"></i> Hiện không có sân nào. Vui lòng quay lại sau!
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            function filterSans() {
+                var timKiem = $('#timKiem').val().toLowerCase();
+                var chiNhanh = $('#chiNhanh').val();
+                var loaiSan = $('#loaiSan').val();
+
+                $('.san-card').each(function () {
+                    var ten = $(this).find('.card-title').text().toLowerCase();
+                    var chiNhanhCard = ($(this).find('.san-chi-nhanh').val() || '').toString();
+                    var loai = ($(this).find('.san-loai').val() || '').toString();
+
+                    var show = true;
+                    if (timKiem && !ten.includes(timKiem)) show = false;
+                    if (chiNhanh && chiNhanhCard !== chiNhanh) show = false;
+                    if (loaiSan && loai !== loaiSan) show = false;
+
+                    $(this).closest('.col-lg-4').toggle(show);
+                });
+            }
+
+            $('#timKiem, #chiNhanh, #loaiSan').on('change keyup', filterSans);
+        });
+    </script>
+}
