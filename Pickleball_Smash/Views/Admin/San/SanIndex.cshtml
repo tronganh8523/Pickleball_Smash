@@ -23,6 +23,12 @@
             @TempData["Success"]
         </div>
     }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
 
     <div class="card shadow mb-4">
         <div class="card-body">
@@ -31,7 +37,6 @@
                     <thead>
                         <tr>
                             <th>Tên</th>
-                            <th>Chi Nhánh</th>
                             <th>Loại Sân</th>
                             <th>Giá Cơ Bản</th>
                             <th>Trạng Thái</th>
@@ -43,11 +48,11 @@
                         {
                             <tr>
                                 <td>@item.TenSan</td>
-                                <td>@item.ChiNhanh?.TenChiNhanh</td>
                                 <td>@item.LoaiSan</td>
                                 <td>@(item.GiaCoBan?.ToString("F0") ?? "")</td>
                                 <td>@item.TrangThai</td>
                                 <td>
+                                    <a asp-controller="AdminHinhAnhSan" asp-action="Index" asp-route-sanId="@item.SanID" class="btn btn-sm btn-info" title="Quản lý ảnh"><i class="fas fa-image"></i></a>
                                     <a asp-controller="AdminSan" asp-action="Edit" asp-route-id="@item.SanID" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
                                     <a asp-controller="AdminSan" asp-action="Delete" asp-route-id="@item.SanID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
                                 </td>

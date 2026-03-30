@@ -219,7 +219,7 @@ namespace Pickleball_Smash.Controllers
 
             if (now <= ngayKetThuc)
             {
-                return "Đang hoạt động";
+                return "Đang diễn ra";
             }
 
             return "Hết hạn";

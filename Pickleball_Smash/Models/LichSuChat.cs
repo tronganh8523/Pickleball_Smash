@@ -7,8 +7,6 @@
         public string? NoiDungHoi { get; set; }
         public string? PhanHoiAI { get; set; }
         public DateTime? ThoiGian { get; set; }
-
-        // Navigation properties
         public NguoiDung? NguoiDung { get; set; }
     }
 }

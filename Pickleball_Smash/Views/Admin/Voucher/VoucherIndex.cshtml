@@ -50,7 +50,18 @@
                                 <td>@item.SoLuongDaDung / @item.SoLuongToiDa</td>
                                 <td>@item.NgayBatDau?.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>@item.NgayKetThuc?.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>@item.TrangThai</td>
+                                <td>
+                                    @{
+                                        var trangThaiClass = item.TrangThai switch
+                                        {
+                                            "Đang diễn ra" => "bg-success",
+                                            "Sắp diễn ra" => "bg-warning text-dark",
+                                            "Hết hạn" => "bg-danger",
+                                            _ => "bg-secondary"
+                                        };
+                                    }
+                                    <span class="badge @trangThaiClass">@item.TrangThai</span>
+                                </td>
                                 <td>
                                     <a asp-controller="AdminVoucher" asp-action="Edit" asp-route-id="@item.VoucherID" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
                                     <a asp-controller="AdminVoucher" asp-action="Delete" asp-route-id="@item.VoucherID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>

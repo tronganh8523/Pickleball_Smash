@@ -1,0 +1,44 @@
+@model Pickleball_Smash.Models.HinhAnhSan
+
+@{
+    ViewData["Title"] = "Thêm Ảnh Sân";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="h3 mb-4 text-dark">Thêm Ảnh - @ViewBag.TenSan</h1>
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white"><h6 class="m-0">Thông Tin Ảnh</h6></div>
+                <div class="card-body">
+                    <form asp-controller="AdminHinhAnhSan" asp-action="Create" method="post" enctype="multipart/form-data">
+                        <div asp-validation-summary="All" class="alert alert-danger"></div>
+                        <input type="hidden" asp-for="SanID" />
+
+                        <div class="mb-3">
+                            <label class="form-label">Chọn Ảnh Từ Máy Tính</label>
+                            <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                            <small class="form-text text-muted">Hỗ trợ: .jpg, .jpeg, .png, .gif, .webp</small>
+                        </div>
+
+                        <div class="text-muted mb-2">Hoặc nhập URL ảnh:</div>
+
+                        <div class="mb-3">
+                            <label asp-for="DuongDanURL" class="form-label">Đường Dẫn Ảnh</label>
+                            <input asp-for="DuongDanURL" class="form-control" placeholder="https://example.com/image.jpg" />
+                            <span asp-validation-for="DuongDanURL" class="text-danger"></span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Lưu</button>
+                        <a asp-controller="AdminHinhAnhSan" asp-action="Index" asp-route-sanId="@ViewBag.SanId" class="btn btn-secondary">Hủy</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

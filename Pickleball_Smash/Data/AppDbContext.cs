@@ -10,12 +10,11 @@ namespace Pickleball_Smash.Data
         }
 
         public DbSet<NguoiDung> NguoiDung { get; set; }
-        public DbSet<ChiNhanh> ChiNhanh { get; set; }
         public DbSet<SanPickleball> SanPickleball { get; set; }
+        public DbSet<HinhAnhSan> HinhAnhSan { get; set; }
+        public DbSet<BangGiaKhungGio> BangGiaKhungGio { get; set; }
         public DbSet<DonDatSan> DonDatSan { get; set; }
-        public DbSet<DichVuPhuTro> DichVuPhuTro { get; set; }
         public DbSet<Voucher> Voucher { get; set; }
-        public DbSet<ChiTietDichVu> ChiTietDichVu { get; set; }
         public DbSet<ThanhToan> ThanhToan { get; set; }
         public DbSet<DanhGia> DanhGia { get; set; }
         public DbSet<LichSuChat> LichSuChat { get; set; }
@@ -47,21 +46,11 @@ namespace Pickleball_Smash.Data
             modelBuilder.Entity<NguoiDung>()
                 .Property(e => e.NgayTao).HasColumnType("DATETIME").HasDefaultValueSql("GETDATE()");
 
-            // CHI_NHANH
-            modelBuilder.Entity<ChiNhanh>().HasKey(e => e.ChiNhanhID);
-            modelBuilder.Entity<ChiNhanh>().ToTable("CHI_NHANH");
-            modelBuilder.Entity<ChiNhanh>()
-                .Property(e => e.TenChiNhanh).IsRequired().HasColumnType("NVARCHAR(100)");
-            modelBuilder.Entity<ChiNhanh>()
-                .Property(e => e.DiaChi).HasColumnType("NVARCHAR(255)");
-            modelBuilder.Entity<ChiNhanh>()
-                .Property(e => e.SDT_LienHe).HasColumnType("VARCHAR(15)");
-
             // SAN_PICKLEBALL
             modelBuilder.Entity<SanPickleball>().HasKey(e => e.SanID);
             modelBuilder.Entity<SanPickleball>().ToTable("SAN_PICKLEBALL");
             modelBuilder.Entity<SanPickleball>()
-                .Property(e => e.TenSan).HasColumnType("NVARCHAR(100)");
+                .Property(e => e.TenSan).IsRequired().HasColumnType("NVARCHAR(100)");
             modelBuilder.Entity<SanPickleball>()
                 .Property(e => e.LoaiSan).HasColumnType("NVARCHAR(50)");
             modelBuilder.Entity<SanPickleball>()
@@ -70,20 +59,31 @@ namespace Pickleball_Smash.Data
                 .Property(e => e.GiaCoBan).HasPrecision(18, 2);
             modelBuilder.Entity<SanPickleball>()
                 .Property(e => e.TrangThai).HasColumnType("NVARCHAR(50)");
-            modelBuilder.Entity<SanPickleball>()
-                .HasOne(e => e.ChiNhanh)
-                .WithMany(e => e.SanPickleballs)
-                .HasForeignKey(e => e.ChiNhanhID);
 
-            // DICH_VU_PHU_TRO
-            modelBuilder.Entity<DichVuPhuTro>().HasKey(e => e.DichVuID);
-            modelBuilder.Entity<DichVuPhuTro>().ToTable("DICH_VU_PHU_TRO");
-            modelBuilder.Entity<DichVuPhuTro>()
-                .Property(e => e.TenDichVu).IsRequired(false).HasColumnType("NVARCHAR(100)");
-            modelBuilder.Entity<DichVuPhuTro>()
-                .Property(e => e.LoaiDichVu).HasColumnType("NVARCHAR(50)");
-            modelBuilder.Entity<DichVuPhuTro>()
-                .Property(e => e.Gia).HasPrecision(18, 2);
+            // HINH_ANH_SAN
+            modelBuilder.Entity<HinhAnhSan>().HasKey(e => e.HinhAnhID);
+            modelBuilder.Entity<HinhAnhSan>().ToTable("HINH_ANH_SAN");
+            modelBuilder.Entity<HinhAnhSan>()
+                .Property(e => e.DuongDanURL).HasColumnType("NVARCHAR(MAX)");
+            modelBuilder.Entity<HinhAnhSan>()
+                .HasOne(e => e.SanPickleball)
+                .WithMany(e => e.HinhAnhSans)
+                .HasForeignKey(e => e.SanID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // BANG_GIA_KHUNG_GIO
+            modelBuilder.Entity<BangGiaKhungGio>().HasKey(e => e.MaGia);
+            modelBuilder.Entity<BangGiaKhungGio>().ToTable("BANG_GIA_KHUNG_GIO");
+            modelBuilder.Entity<BangGiaKhungGio>()
+                .Property(e => e.GioBatDau).HasColumnType("time");
+            modelBuilder.Entity<BangGiaKhungGio>()
+                .Property(e => e.GioKetThuc).HasColumnType("time");
+            modelBuilder.Entity<BangGiaKhungGio>()
+                .Property(e => e.GiaTien).HasPrecision(18, 2);
+            modelBuilder.Entity<BangGiaKhungGio>()
+                .HasOne(e => e.SanPickleball)
+                .WithMany(e => e.BangGiaKhungGios)
+                .HasForeignKey(e => e.SanID);
 
             // VOUCHER
             modelBuilder.Entity<Voucher>().HasKey(e => e.VoucherID);
@@ -141,20 +141,6 @@ namespace Pickleball_Smash.Data
                 .HasOne(e => e.Voucher)
                 .WithMany(e => e.DonDatSans)
                 .HasForeignKey(e => e.VoucherID);
-
-            // CHI_TIET_DICH_VU
-            modelBuilder.Entity<ChiTietDichVu>().HasKey(e => e.ChiTietDichVuID);
-            modelBuilder.Entity<ChiTietDichVu>().ToTable("CHI_TIET_DICH_VU");
-            modelBuilder.Entity<ChiTietDichVu>()
-                .Property(e => e.ThanhTien).HasPrecision(18, 2);
-            modelBuilder.Entity<ChiTietDichVu>()
-                .HasOne(e => e.DonDatSan)
-                .WithMany(e => e.ChiTietDichVus)
-                .HasForeignKey(e => e.DonDatSanID);
-            modelBuilder.Entity<ChiTietDichVu>()
-                .HasOne(e => e.DichVuPhuTro)
-                .WithMany(e => e.ChiTietDichVus)
-                .HasForeignKey(e => e.DichVuID);
 
             // THANH_TOAN
             modelBuilder.Entity<ThanhToan>().HasKey(e => e.ThanhToanID);

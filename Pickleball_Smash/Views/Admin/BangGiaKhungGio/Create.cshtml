@@ -1,0 +1,141 @@
+@model Pickleball_Smash.Models.ViewModels.BangGiaKhungGioCreateViewModel
+
+@{
+    ViewData["Title"] = "Thêm Bảng Giá Khung Giờ";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="h3 mb-4 text-dark">Thêm Bảng Giá Khung Giờ</h1>
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white"><h6 class="m-0">Thông Tin Bảng Giá</h6></div>
+                <div class="card-body">
+                    <form asp-controller="AdminBangGiaKhungGio" asp-action="Create" method="post">
+                        <div asp-validation-summary="All" class="alert alert-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="SanIDs" class="form-label">Sân</label>
+                            <select asp-for="SanIDs" class="form-select" asp-items="ViewBag.Sans" multiple size="6">
+                            </select>
+                            <small class="form-text text-muted">Giữ Ctrl để chọn nhiều sân.</small>
+                            <span asp-validation-for="SanIDs" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="GioBatDau" class="form-label">Giờ Bắt Đầu</label>
+                                <select asp-for="GioBatDau" class="form-select" asp-items="ViewBag.StartHourOptions">
+                                    <option value="">-- Chọn giờ bắt đầu --</option>
+                                </select>
+                                <span asp-validation-for="GioBatDau" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="GioKetThuc" class="form-label">Giờ Kết Thúc</label>
+                                <select asp-for="GioKetThuc" class="form-select" asp-items="ViewBag.EndHourOptions">
+                                    <option value="">-- Chọn giờ kết thúc --</option>
+                                </select>
+                                <span asp-validation-for="GioKetThuc" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <small class="form-text text-muted">Khung giờ chỉ cho phép từ 06:00 đến 24:00, bước nhảy 1 giờ. Giờ đã dùng sẽ tự động bị khóa.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="GiaTien" class="form-label">Giá Tiền (VNĐ)</label>
+                            <input asp-for="GiaTien" class="form-control" type="number" step="1000" min="0" />
+                            <span asp-validation-for="GiaTien" class="text-danger"></span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Lưu</button>
+                        <a asp-controller="AdminBangGiaKhungGio" asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        (function () {
+            const sanSelect = document.getElementById("SanIDs");
+            const startSelect = document.getElementById("GioBatDau");
+            const endSelect = document.getElementById("GioKetThuc");
+            let occupiedHours = new Set();
+
+            function toHour(value, isEnd) {
+                if (!value) return null;
+                if (isEnd && value === "00:00") return 24;
+                return Number.parseInt(value.split(":")[0], 10);
+            }
+
+            function getSelectedSanIds() {
+                return Array.from(sanSelect.selectedOptions)
+                    .map(opt => opt.value)
+                    .filter(Boolean);
+            }
+
+            function isRangeAvailable(startHour, endHour) {
+                for (let h = startHour; h < endHour; h++) {
+                    if (occupiedHours.has(h)) return false;
+                }
+                return true;
+            }
+
+            function applyAvailability() {
+                const selectedStart = toHour(startSelect.value, false);
+
+                Array.from(startSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const h = toHour(opt.value, false);
+                    opt.disabled = occupiedHours.has(h);
+                });
+
+                if (selectedStart !== null && occupiedHours.has(selectedStart)) {
+                    startSelect.value = "";
+                }
+
+                const effectiveStart = toHour(startSelect.value, false);
+                Array.from(endSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const endHour = toHour(opt.value, true);
+                    const invalidByOrder = effectiveStart === null || endHour <= effectiveStart;
+                    const invalidByOverlap = effectiveStart !== null && !isRangeAvailable(effectiveStart, endHour);
+                    opt.disabled = invalidByOrder || invalidByOverlap;
+                });
+
+                const selectedEnd = toHour(endSelect.value, true);
+                if (effectiveStart !== null && selectedEnd !== null && !isRangeAvailable(effectiveStart, selectedEnd)) {
+                    endSelect.value = "";
+                }
+            }
+
+            async function refreshOccupiedHours() {
+                const ids = getSelectedSanIds();
+                if (ids.length === 0) {
+                    occupiedHours = new Set();
+                    applyAvailability();
+                    return;
+                }
+
+                const query = ids.map(id => `sanIds=${encodeURIComponent(id)}`).join("&");
+                const response = await fetch(`/AdminBangGiaKhungGio/GetOccupiedHours?${query}`);
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                occupiedHours = new Set((data.occupiedHours || []).map(Number));
+                applyAvailability();
+            }
+
+            sanSelect.addEventListener("change", refreshOccupiedHours);
+            startSelect.addEventListener("change", applyAvailability);
+            refreshOccupiedHours();
+        })();
+    </script>
+}

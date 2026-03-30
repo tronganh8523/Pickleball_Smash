@@ -65,22 +65,6 @@ app.UseRouting();
 
 app.UseSession();
 
-app.Use(async (context, next) =>
-{
-    var path = context.Request.Path.Value ?? string.Empty;
-    if (path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase))
-    {
-        var role = context.Session.GetString("Role");
-        if (!string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
-        {
-            context.Response.Redirect("/Auth/Login");
-            return;
-        }
-    }
-
-    await next();
-});
-
 app.UseAuthorization();
 
 app.MapControllerRoute(

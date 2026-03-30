@@ -18,16 +18,7 @@
 
     <!-- Thống kê -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-left-primary shadow h-100 py-2">
-                <div class="card-body">
-                    <div class="text-primary text-uppercase mb-1">Chi Nhánh</div>
-                    <div class="h3 mb-0"><strong>@ViewBag.TongChiNhanh</strong></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-left-success shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-success text-uppercase mb-1">Sân Pickleball</div>
@@ -36,7 +27,7 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-left-info shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-info text-uppercase mb-1">Người Dùng</div>
@@ -45,7 +36,7 @@
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-left-warning shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-warning text-uppercase mb-1">Đơn Đặt Sân</div>
@@ -56,7 +47,7 @@
     </div>
 
     <div class="col-md-6">
-        <a href="@Url.Action("LogoutAndGoHome", "Auth")" class="btn btn-secondary btn-block mb-3">
+        <a href="@Url.Action("Index", "Home")" class="btn btn-secondary btn-block mb-3">
             <i class="fas fa-door-open"></i> Trang Chủ
         </a>
     </div>

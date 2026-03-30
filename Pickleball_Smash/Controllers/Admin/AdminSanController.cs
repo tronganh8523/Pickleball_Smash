@@ -17,35 +17,41 @@ namespace Pickleball_Smash.Controllers
         // GET: San - List
         public async Task<IActionResult> Index()
         {
-            var items = await _context.SanPickleball
-                .Include(s => s.ChiNhanh)
-                .ToListAsync();
+            var items = await _context.SanPickleball.ToListAsync();
             return View("~/Views/Admin/San/SanIndex.cshtml", items);
         }
 
         // GET: San - Create
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            ViewBag.ChiNhanhs = await _context.ChiNhanh.ToListAsync();
-            return View("~/Views/Admin/San/SanCreate.cshtml");
+            var model = new SanPickleball
+            {
+                TrangThai = "Mở"
+            };
+
+            return View("~/Views/Admin/San/SanCreate.cshtml", model);
         }
 
         // POST: San - Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("TenSan,LoaiSan,MoTa,GiaCoBan,TrangThai,ChiNhanhID")] SanPickleball san)
+        public async Task<IActionResult> Create([Bind("TenSan,LoaiSan,MoTa,GiaCoBan,TrangThai")] SanPickleball san)
         {
-            // duplicate name within branch
+            if (string.IsNullOrWhiteSpace(san.TrangThai))
+            {
+                san.TrangThai = "Mở";
+            }
+
+            // duplicate name
             if (!string.IsNullOrWhiteSpace(san.TenSan))
             {
                 var tenSan = san.TenSan.Trim().ToLower();
                 var exist = await _context.SanPickleball
                     .FirstOrDefaultAsync(x => x.TenSan != null
-                        && x.TenSan.ToLower() == tenSan
-                        && x.ChiNhanhID == san.ChiNhanhID);
+                        && x.TenSan.ToLower() == tenSan);
                 if (exist != null)
                 {
-                    ModelState.AddModelError("TenSan", "Tên sân đã tồn tại trong chi nhánh này.");
+                    ModelState.AddModelError("TenSan", "Tên sân đã tồn tại.");
                 }
             }
 
@@ -56,7 +62,6 @@ namespace Pickleball_Smash.Controllers
                 TempData["Success"] = "Thêm sân thành công!";
                 return RedirectToAction(nameof(Index), "AdminSan");
             }
-            ViewBag.ChiNhanhs = await _context.ChiNhanh.ToListAsync();
             return View("~/Views/Admin/San/SanCreate.cshtml", san);
         }
 
@@ -66,14 +71,13 @@ namespace Pickleball_Smash.Controllers
             if (id == null) return NotFound();
             var san = await _context.SanPickleball.FindAsync(id);
             if (san == null) return NotFound();
-            ViewBag.ChiNhanhs = await _context.ChiNhanh.ToListAsync();
             return View("~/Views/Admin/San/SanEdit.cshtml", san);
         }
 
         // POST: San - Edit
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("SanID,TenSan,LoaiSan,MoTa,GiaCoBan,TrangThai,ChiNhanhID")] SanPickleball san)
+        public async Task<IActionResult> Edit(int id, [Bind("SanID,TenSan,LoaiSan,MoTa,GiaCoBan,TrangThai")] SanPickleball san)
         {
             if (id != san.SanID) return NotFound();
             if (!string.IsNullOrWhiteSpace(san.TenSan))
@@ -82,11 +86,10 @@ namespace Pickleball_Smash.Controllers
                 var exist = await _context.SanPickleball
                     .FirstOrDefaultAsync(x => x.TenSan != null
                         && x.TenSan.ToLower() == tenSan
-                        && x.ChiNhanhID == san.ChiNhanhID
                         && x.SanID != san.SanID);
                 if (exist != null)
                 {
-                    ModelState.AddModelError("TenSan", "Tên sân đã tồn tại trong chi nhánh này.");
+                    ModelState.AddModelError("TenSan", "Tên sân đã tồn tại.");
                 }
             }
 
@@ -106,7 +109,6 @@ namespace Pickleball_Smash.Controllers
                 }
                 return RedirectToAction(nameof(Index), "AdminSan");
             }
-            ViewBag.ChiNhanhs = await _context.ChiNhanh.ToListAsync();
             return View("~/Views/Admin/San/SanEdit.cshtml", san);
         }
 
@@ -114,9 +116,7 @@ namespace Pickleball_Smash.Controllers
         public async Task<IActionResult> Delete(int? id)
         {
             if(id==null) return NotFound();
-            var san = await _context.SanPickleball
-                .Include(s=>s.ChiNhanh)
-                .FirstOrDefaultAsync(m=>m.SanID==id);
+            var san = await _context.SanPickleball.FirstOrDefaultAsync(m=>m.SanID==id);
             if(san==null) return NotFound();
             return View("~/Views/Admin/San/SanDelete.cshtml", san);
         }

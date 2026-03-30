@@ -16,12 +16,10 @@ namespace Pickleball_Smash.Controllers
         // GET: Admin Dashboard
         public async Task<IActionResult> Dashboard()
         {
-            var tongChiNhanh = await _context.ChiNhanh.CountAsync();
             var tongSan = await _context.SanPickleball.CountAsync();
             var tongNguoiDung = await _context.NguoiDung.CountAsync();
             var tongDonDat = await _context.DonDatSan.CountAsync();
 
-            ViewBag.TongChiNhanh = tongChiNhanh;
             ViewBag.TongSan = tongSan;
             ViewBag.TongNguoiDung = tongNguoiDung;
             ViewBag.TongDonDat = tongDonDat;

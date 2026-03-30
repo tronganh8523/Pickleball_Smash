@@ -12,7 +12,7 @@
 <div class="hero mb-5">
     <h1><i class="fas fa-badminton"></i> Pickleball Smash</h1>
     <p>Tìm và đặt sân pickleball dễ dàng, nhanh chóng</p>
-    <a asp-controller="User" asp-action="DanhSachSan" class="btn btn-light btn-lg">
+    <a href="#danh-sach-san" class="btn btn-light btn-lg">
         <i class="fas fa-search"></i> Tìm Sân Ngay
     </a>
 </div>
@@ -66,20 +66,14 @@
                         <img src="https://via.placeholder.com/300x200?text=San+Pickleball" class="card-img-top" alt="@san.TenSan">
                         <div class="card-body">
                             <h5 class="card-title">@san.TenSan</h5>
-                            <p class="text-muted"><i class="fas fa-map-marker-alt"></i> @san.ChiNhanh?.TenChiNhanh</p>
                             <p class="card-text">@san.MoTa</p>
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="badge bg-info">@san.LoaiSan</span>
                                 <strong>@(san.GiaCoBan?.ToString("N0") ?? "0") VNĐ/h</strong>
                             </div>
                         </div>
-                        <div class="card-footer bg-transparent d-grid gap-2">
-                            <a asp-controller="User" asp-action="ChiTietSan" asp-route-id="@san.SanID" class="btn btn-outline-primary btn-sm">
-                                <i class="fas fa-eye"></i> Xem Chi Tiết
-                            </a>
-                            <a asp-controller="User" asp-action="DatSan" asp-route-id="@san.SanID" class="btn btn-primary btn-sm">
-                                <i class="fas fa-calendar"></i> Đặt Sân
-                            </a>
+                        <div class="card-footer bg-transparent">
+                            <span class="text-muted small">Chức năng đặt sân đang tạm ẩn.</span>
                         </div>
                     </div>
                 </div>
@@ -93,9 +87,7 @@
         }
     </div>
     <div class="text-center mt-4">
-        <a asp-controller="User" asp-action="DanhSachSan" class="btn btn-primary btn-lg">
-            <i class="fas fa-eye"></i> Xem Tất Cả Sân
-        </a>
+        <span class="text-muted">Danh sách hiển thị tại trang chủ.</span>
     </div>
 </section>
 

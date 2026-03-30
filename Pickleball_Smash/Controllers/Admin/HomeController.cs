@@ -20,7 +20,6 @@ public class HomeController : Controller
     public async Task<IActionResult> Index()
     {
         var sanNoiBat = await _context.SanPickleball
-            .Include(s => s.ChiNhanh)
             .OrderByDescending(s => s.SanID)
             .Take(8)
             .ToListAsync();

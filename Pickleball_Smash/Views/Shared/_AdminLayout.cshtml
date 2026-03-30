@@ -44,21 +44,15 @@
                     <h6 class="sidebar-heading">Quản lý</h6>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link @(currentController == "AdminChiNhanh" ? "active" : "")"
-                                   href="@Url.Action("ChiNhanhIndex", "AdminChiNhanh")">
-                                <i class="fas fa-map-marker-alt"></i> Chi Nhánh
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a class="nav-link @(currentController == "AdminSan" ? "active" : "")"
                                    href="@Url.Action("Index", "AdminSan")">
                                 <i class="fas fa-th-large"></i> Sân
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link @(currentController == "AdminDichVu" ? "active" : "")"
-                                   href="@Url.Action("Index", "AdminDichVu")">
-                                <i class="fas fa-concierge-bell"></i> Dịch Vụ
+                            <a class="nav-link @(currentController == "AdminBangGiaKhungGio" ? "active" : "")"
+                                   href="@Url.Action("Index", "AdminBangGiaKhungGio")">
+                                <i class="fas fa-clock"></i> Bảng Giá Khung Giờ
                             </a>
                         </li>
                         <li class="nav-item">
@@ -87,17 +81,9 @@
                     <h6 class="sidebar-heading">Hệ thống</h6>
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="@Url.Action("LogoutAndGoHome", "Auth")">
+                            <a class="nav-link" href="@Url.Action("Index", "Home")">
                                 <i class="fas fa-arrow-left"></i> Quay lại Website
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="nav-link text-danger btn btn-link w-100 text-start">
-                                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
-                                </button>
-                            </form>
                         </li>
                     </ul>
                 </div>
@@ -118,16 +104,7 @@
                                      height="35">
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                                <li><a class="dropdown-item" href="@Url.Action("AdminChangePassword", "Auth")">Đổi mật khẩu</a></li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li>
-                                    <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
-                                        @Html.AntiForgeryToken()
-                                        <button type="submit" class="dropdown-item text-danger">Đăng xuất</button>
-                                    </form>
-                                </li>
+                                <li><a class="dropdown-item" href="@Url.Action("Index", "Home")">Trang chủ</a></li>
                             </ul>
                         </div>
                     </div>

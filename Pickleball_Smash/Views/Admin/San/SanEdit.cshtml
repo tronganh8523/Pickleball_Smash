@@ -17,14 +17,6 @@
                         <input type="hidden" asp-for="SanID" />
 
                         <div class="mb-3">
-                            <label asp-for="ChiNhanhID" class="form-label">Chi Nhánh</label>
-                            <select asp-for="ChiNhanhID" class="form-select" asp-items="@(new SelectList(ViewBag.ChiNhanhs, "ChiNhanhID", "TenChiNhanh"))">
-                                <option value="">-- chọn --</option>
-                            </select>
-                            <span asp-validation-for="ChiNhanhID" class="text-danger"></span>
-                        </div>
-
-                        <div class="mb-3">
                             <label asp-for="TenSan" class="form-label">Tên Sân</label>
                             <input asp-for="TenSan" class="form-control" />
                             <span asp-validation-for="TenSan" class="text-danger"></span>
