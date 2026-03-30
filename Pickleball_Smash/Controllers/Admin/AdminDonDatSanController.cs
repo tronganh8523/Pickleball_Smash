@@ -23,7 +23,7 @@ namespace Pickleball_Smash.Controllers
                 .OrderByDescending(d => d.NgayTao)
                 .ToListAsync();
 
-            return View("~/Views/Admin/DonDatSan/DonDatSanIndex.cshtml", items);
+            return View("~/Views/Admin/DonDatSan/Index.cshtml", items);
         }
     }
 }

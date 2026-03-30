@@ -1,0 +1,42 @@
+<div class="modal fade" id="createBangGiaModal" tabindex="-1" aria-labelledby="createBangGiaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createBangGiaModalLabel">Thêm Bảng Giá Khung Giờ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminBangGiaKhungGio" asp-action="Create" method="post" data-swal-skip="true">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Sân</label>
+                        <select name="SanIDs" class="form-select" asp-items="ViewBag.Sans" multiple size="6"></select>
+                        <small class="form-text text-muted">Giữ Ctrl để chọn nhiều sân.</small>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Giờ bắt đầu</label>
+                            <select name="GioBatDau" class="form-select" asp-items="ViewBag.StartHourOptions">
+                                <option value="">-- Chọn giờ bắt đầu --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Giờ kết thúc</label>
+                            <select name="GioKetThuc" class="form-select" asp-items="ViewBag.EndHourOptions">
+                                <option value="">-- Chọn giờ kết thúc --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Giá tiền</label>
+                            <input name="GiaTien" class="form-control" type="number" step="1000" min="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

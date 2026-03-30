@@ -1,0 +1,500 @@
+@model Pickleball_Smash.Models.ViewModels.ManagerDashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard Manager";
+    Layout = "~/Views/Shared/_ManagerLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/manager-dashboard.css" asp-append-version="true" />
+}
+
+<div class="summary-grid">
+    <article class="summary-card green">
+        <p>Tổng số sân</p>
+        <h3>@Model.TongSan</h3>
+    </article>
+    <article class="summary-card orange">
+        <p>Đơn chờ xác nhận</p>
+        <h3>@Model.TongDonChoXacNhan</h3>
+    </article>
+    <article class="summary-card red">
+        <p>Sân đang bận</p>
+        <h3>@Model.TongSanDangBan</h3>
+    </article>
+</div>
+
+<section class="court-grid-wrap">
+    <h2>Danh sách sân</h2>
+
+    @{
+        var loaiSanOptions = ViewBag.LoaiSanOptions as List<string> ?? new List<string>();
+        var trangThaiOptions = ViewBag.TrangThaiOptions as List<string> ?? new List<string>();
+        var selectedLoaiSan = ViewBag.SelectedLoaiSan as string;
+        var selectedTrangThai = ViewBag.SelectedTrangThai as string;
+    }
+
+    <form method="get" asp-controller="Manager" asp-action="Dashboard" class="court-filter-form">
+        <div class="filter-group">
+            <label for="loaiSan">Loại sân</label>
+            <select id="loaiSan" name="loaiSan" class="form-select" onchange="this.form.submit()">
+                <option value="">Tất cả loại sân</option>
+                @foreach (var loai in loaiSanOptions)
+                {
+                    <option value="@loai" selected="@(string.Equals(selectedLoaiSan, loai, StringComparison.OrdinalIgnoreCase))">@loai</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="trangThai">Trạng thái</label>
+            <select id="trangThai" name="trangThai" class="form-select" onchange="this.form.submit()">
+                <option value="">Tất cả trạng thái</option>
+                @foreach (var tt in trangThaiOptions)
+                {
+                    <option value="@tt" selected="@(string.Equals(selectedTrangThai, tt, StringComparison.OrdinalIgnoreCase))">@tt</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <a asp-controller="Manager" asp-action="Dashboard" class="btn btn-outline-secondary">Bỏ lọc</a>
+        </div>
+    </form>
+
+    <div class="court-grid">
+        @if (Model.DanhSachSan.Any())
+        {
+            @foreach (var san in Model.DanhSachSan)
+            {
+                <article class="court-card">
+                    <img src="@san.AnhDaiDienUrl" alt="@san.TenSan" />
+                    <div class="court-body">
+                        <div class="court-title">
+                            <h4>@san.TenSan</h4>
+                            <span class="status-pill @san.BadgeClass">@san.TinhTrang</span>
+                        </div>
+                        <p class="court-type">@san.LoaiSan</p>
+                        <div class="court-price">
+                            <span>Bảng giá</span>
+                            <strong>@san.GiaCoBan.ToString("N0") đ/giờ</strong>
+                        </div>
+                        <p class="court-note">@san.MoTaNgan</p>
+                        <button
+                            type="button"
+                            class="court-action @san.ActionClass @(san.ActionClass == "btn-book" ? "js-open-booking" : "js-checkout")"
+                            data-san-id="@san.SanID"
+                            data-booking-id="@san.BookingDangHoatDongID"
+                            data-ten-san="@san.TenSan"
+                            data-loai-san="@san.LoaiSan"
+                            data-gia="@san.GiaCoBan">
+                            @san.ActionText
+                        </button>
+                    </div>
+                </article>
+            }
+        }
+        else
+        {
+            <div class="empty-state">Hiện chưa có dữ liệu sân.</div>
+        }
+    </div>
+</section>
+
+<div id="bookingOverlay" class="booking-overlay" hidden>
+    <div class="booking-overlay-backdrop"></div>
+    <div class="booking-modal" role="dialog" aria-modal="true" aria-labelledby="bookingModalTitle">
+        <button type="button" class="booking-close" id="bookingCloseBtn" aria-label="Đóng">x</button>
+
+        <h3 id="bookingModalTitle">Đặt sân</h3>
+
+        <div class="booking-layout">
+            <form id="bookingForm" class="booking-form" novalidate>
+                <div class="form-row">
+                    <label for="bookingCustomer">Khách hàng</label>
+                    <input id="bookingCustomer" type="text" class="form-control" placeholder="Nhập tên khách hàng" />
+                </div>
+
+                <div class="form-row">
+                    <label for="bookingPhone">Số điện thoại</label>
+                    <input id="bookingPhone" type="text" class="form-control" placeholder="Nhập số điện thoại" />
+                </div>
+
+                <div class="form-row">
+                    <label for="bookingDate">Ngày đặt</label>
+                    <input id="bookingDate" type="date" class="form-control" />
+                </div>
+
+                <div class="form-row form-row-full">
+                    <label for="bookingCourt">Chọn sân</label>
+                    <select id="bookingCourt" class="form-select">
+                        <option value="">--Chọn Sân--</option>
+                        @foreach (var san in Model.DanhSachSan)
+                        {
+                            <option value="@san.SanID" data-ten-san="@san.TenSan" data-loai-san="@san.LoaiSan" data-gia="@san.GiaCoBan">@san.TenSan</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label for="bookingStart">Giờ bắt đầu</label>
+                    <select id="bookingStart" class="form-select">
+                        @for (var hour = 5; hour <= 22; hour++)
+                        {
+                            var label = $"{hour:00}:00";
+                            <option value="@label">@label</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label for="bookingEnd">Giờ kết thúc</label>
+                    <select id="bookingEnd" class="form-select">
+                        @for (var hour = 6; hour <= 23; hour++)
+                        {
+                            var label = $"{hour:00}:00";
+                            <option value="@label">@label</option>
+                        }
+                    </select>
+                </div>
+
+            </form>
+
+            <aside class="booking-summary">
+                <h5>Tóm tắt đặt sân</h5>
+
+                <div class="summary-item"><span>Khách hàng</span><strong id="sumCustomer">-</strong></div>
+                <div class="summary-item"><span>Loại sân</span><strong id="sumLoaiSan">-</strong></div>
+                <div class="summary-item"><span>Số điện thoại</span><strong id="sumPhone">-</strong></div>
+                <div class="summary-item"><span>Khung giờ</span><strong id="sumTime">-</strong></div>
+                <div class="summary-item"><span>Ngày đặt sân</span><strong id="sumDate">-</strong></div>
+                <hr />
+
+                <div class="summary-item"><span>Tổng tiền</span><strong id="sumTotal">0 đ</strong></div>
+                <button id="bookingSubmitBtn" type="button" class="btn btn-primary w-100 mt-2">Đặt Sân</button>
+            </aside>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const createBookingUrl = '@Url.Action("CreateBooking", "Manager")';
+            const checkoutCourtUrl = '@Url.Action("CheckoutCourt", "Manager")';
+            const hasSwal = typeof Swal !== "undefined";
+            const overlay = document.getElementById("bookingOverlay");
+            const backdrop = overlay?.querySelector(".booking-overlay-backdrop");
+            const closeBtn = document.getElementById("bookingCloseBtn");
+            const openButtons = document.querySelectorAll(".js-open-booking");
+            const checkoutButtons = document.querySelectorAll(".js-checkout");
+            const bookingCourt = document.getElementById("bookingCourt");
+            const bookingCustomer = document.getElementById("bookingCustomer");
+            const bookingPhone = document.getElementById("bookingPhone");
+            const bookingDate = document.getElementById("bookingDate");
+            const bookingStart = document.getElementById("bookingStart");
+            const bookingEnd = document.getElementById("bookingEnd");
+            const bookingSubmitBtn = document.getElementById("bookingSubmitBtn");
+
+            const sumCustomer = document.getElementById("sumCustomer");
+            const sumLoaiSan = document.getElementById("sumLoaiSan");
+            const sumPhone = document.getElementById("sumPhone");
+            const sumTime = document.getElementById("sumTime");
+            const sumDate = document.getElementById("sumDate");
+            const sumTotal = document.getElementById("sumTotal");
+
+            let selectedCourtPrice = 0;
+
+            const formatVnd = (value) => `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
+
+            const showError = async (message) => {
+                if (!hasSwal) {
+                    alert(message);
+                    return;
+                }
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Có lỗi xảy ra",
+                    text: message,
+                    confirmButtonText: "Đã hiểu"
+                });
+            };
+
+            const showSuccess = async (message) => {
+                if (!hasSwal) {
+                    alert(message);
+                    return;
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Thành công",
+                    text: message,
+                    confirmButtonText: "OK"
+                });
+            };
+
+            const showWarning = async (message) => {
+                if (!hasSwal) {
+                    alert(message);
+                    return;
+                }
+
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Thiếu thông tin",
+                    text: message,
+                    confirmButtonText: "OK"
+                });
+            };
+
+            const confirmAction = async (message) => {
+                if (!hasSwal) {
+                    return confirm(message);
+                }
+
+                const result = await Swal.fire({
+                    icon: "question",
+                    title: "Xác nhận",
+                    text: message,
+                    showCancelButton: true,
+                    confirmButtonText: "Đồng ý",
+                    cancelButtonText: "Hủy"
+                });
+
+                return !!result.isConfirmed;
+            };
+
+            const setTodayIfEmpty = () => {
+                if (!bookingDate || bookingDate.value) return;
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, "0");
+                const day = String(now.getDate()).padStart(2, "0");
+                bookingDate.value = `${now.getFullYear()}-${month}-${day}`;
+            };
+
+            const updateSummary = () => {
+                const selectedOption = bookingCourt?.selectedOptions?.[0];
+                const loaiSan = selectedOption?.dataset?.loaiSan || "-";
+
+                const startVal = bookingStart?.value || "-";
+                const endVal = bookingEnd?.value || "-";
+
+                sumCustomer.textContent = bookingCustomer?.value?.trim() || "-";
+                sumLoaiSan.textContent = loaiSan;
+                sumPhone.textContent = bookingPhone?.value?.trim() || "-";
+                sumTime.textContent = `${startVal} - ${endVal}`;
+                sumDate.textContent = bookingDate?.value || "-";
+
+                const startHour = Number((bookingStart?.value || "0").split(":")[0]);
+                const endHour = Number((bookingEnd?.value || "0").split(":")[0]);
+                const hours = Math.max(1, endHour - startHour);
+                sumTotal.textContent = formatVnd(selectedCourtPrice * hours);
+            };
+
+            const validateForm = async () => {
+                if (!bookingCourt?.value) {
+                    await showWarning("Vui lòng chọn sân.");
+                    return false;
+                }
+
+                if (!bookingCustomer?.value?.trim() || !bookingPhone?.value?.trim()) {
+                    await showWarning("Vui lòng nhập khách hàng và số điện thoại.");
+                    return false;
+                }
+
+                if (!bookingDate?.value) {
+                    await showWarning("Vui lòng chọn ngày đặt.");
+                    return false;
+                }
+
+                if ((bookingEnd?.value || "") <= (bookingStart?.value || "")) {
+                    await showWarning("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+                    return false;
+                }
+
+                return true;
+            };
+
+            const openModal = (button) => {
+                if (!overlay) return;
+
+                setTodayIfEmpty();
+
+                const sanId = button?.dataset?.sanId;
+                if (bookingCourt && sanId) {
+                    bookingCourt.value = sanId;
+                }
+
+                const selectedOption = bookingCourt?.selectedOptions?.[0];
+                selectedCourtPrice = Number(selectedOption?.dataset?.gia || 0);
+
+                updateSummary();
+
+                overlay.hidden = false;
+                document.body.classList.add("booking-open");
+            };
+
+            const closeModal = () => {
+                if (!overlay) return;
+                overlay.hidden = true;
+                document.body.classList.remove("booking-open");
+            };
+
+            openButtons.forEach(btn => {
+                btn.addEventListener("click", function () {
+                    openModal(this);
+                });
+            });
+
+            checkoutButtons.forEach(btn => {
+                btn.addEventListener("click", async function () {
+                    const sanId = Number(this.dataset.sanId || 0);
+                    const bookingId = Number(this.dataset.bookingId || 0);
+
+                    if (!sanId || !bookingId) {
+                        await showError("Không tìm thấy đơn đang hoạt động để check-out.");
+                        return;
+                    }
+
+                    const ok = await confirmAction("Bạn muốn check-out để giải phóng sân này?");
+                    if (!ok) {
+                        return;
+                    }
+
+                    const originalText = this.textContent;
+                    this.disabled = true;
+                    this.textContent = "Đang check-out...";
+
+                    try {
+                        const response = await fetch(checkoutCourtUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ sanID: sanId, bookingID: bookingId })
+                        });
+
+                        const result = await response.json();
+                        if (!response.ok || !result?.success) {
+                            await showError(result?.message || "Không thể check-out sân.");
+                            return;
+                        }
+
+                        await showSuccess("Check-out thành công, sân đã được giải phóng.");
+                        window.location.reload();
+                    } catch (error) {
+                        await showError("Lỗi kết nối máy chủ. Vui lòng thử lại.");
+                    } finally {
+                        this.disabled = false;
+                        this.textContent = originalText;
+                    }
+                });
+            });
+
+            closeBtn?.addEventListener("click", closeModal);
+            backdrop?.addEventListener("click", closeModal);
+
+            bookingCourt?.addEventListener("change", function () {
+                const selectedOption = this.selectedOptions?.[0];
+                selectedCourtPrice = Number(selectedOption?.dataset?.gia || 0);
+                updateSummary();
+            });
+
+            [bookingCustomer, bookingPhone, bookingDate, bookingStart, bookingEnd].forEach(input => {
+                input?.addEventListener("input", updateSummary);
+                input?.addEventListener("change", updateSummary);
+            });
+
+            bookingSubmitBtn?.addEventListener("click", async function () {
+                if (!await validateForm()) {
+                    return;
+                }
+
+                const payload = {
+                    sanID: Number(bookingCourt?.value || 0),
+                    tenKhachHang: bookingCustomer?.value?.trim() || "",
+                    soDienThoai: bookingPhone?.value?.trim() || "",
+                    ngayChoi: bookingDate?.value || "",
+                    gioBatDau: bookingStart?.value || "",
+                    gioKetThuc: bookingEnd?.value || ""
+                };
+
+                const originalText = this.textContent;
+                this.disabled = true;
+                this.textContent = "Đang lưu...";
+
+                try {
+                    const response = await fetch(createBookingUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok || !result?.success) {
+                        await showError(result?.message || "Không thể đặt sân. Vui lòng thử lại.");
+                        return;
+                    }
+
+                    await showSuccess(`Đặt sân thành công. Mã đơn #${result.bookingId}`);
+                    closeModal();
+                    window.location.reload();
+                } catch (error) {
+                    await showError("Lỗi kết nối máy chủ. Vui lòng thử lại.");
+                } finally {
+                    this.disabled = false;
+                    this.textContent = originalText;
+                }
+            });
+
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape" && overlay && !overlay.hidden) {
+                    closeModal();
+                }
+            });
+        })();
+    </script>
+}
+
+<section class="recent-orders">
+    <h2>Đơn mới cập nhật</h2>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Mã đơn</th>
+                    <th>Khách hàng</th>
+                    <th>Sân</th>
+                    <th>Ngày chơi</th>
+                    <th>Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.DonGanDay.Any())
+                {
+                    @foreach (var item in Model.DonGanDay)
+                    {
+                        <tr>
+                            <td>#@item.DonDatSanID</td>
+                            <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</td>
+                            <td>@(item.SanPickleball?.TenSan ?? "N/A")</td>
+                            <td>@(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td>@(item.TrangThaiDon ?? "-")</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center">Chưa có đơn đặt sân gần đây.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>

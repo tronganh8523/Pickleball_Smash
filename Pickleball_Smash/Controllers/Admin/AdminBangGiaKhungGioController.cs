@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
 using Pickleball_Smash.Models.ViewModels;
+using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
@@ -25,15 +26,17 @@ namespace Pickleball_Smash.Controllers
                 .ThenBy(x => x.GioBatDau)
                 .ToListAsync();
 
+            await LoadSansAsync();
+            PrepareTimeOptions();
+
             return View("~/Views/Admin/BangGiaKhungGio/Index.cshtml", items);
         }
 
         // GET: BangGiaKhungGio - Create
-        public async Task<IActionResult> Create()
+        public IActionResult Create()
         {
-            await LoadSansAsync();
-            PrepareTimeOptions();
-            return View("~/Views/Admin/BangGiaKhungGio/Create.cshtml", new BangGiaKhungGioCreateViewModel());
+            TempData["Error"] = "Vui lòng thao tác tạo bảng giá bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
         }
 
         // POST: BangGiaKhungGio - Create
@@ -125,28 +128,15 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
             }
 
-            await LoadSansAsync(form.SanIDs);
-            PrepareTimeOptions(form.GioBatDau, form.GioKetThuc);
-            return View("~/Views/Admin/BangGiaKhungGio/Create.cshtml", form);
+            SetModalState("create-banggia", form);
+            return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
         }
 
         // GET: BangGiaKhungGio - Edit
-        public async Task<IActionResult> Edit(int? id)
+        public IActionResult Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var bangGia = await _context.BangGiaKhungGio.FindAsync(id);
-            if (bangGia == null)
-            {
-                return NotFound();
-            }
-
-            await LoadSansAsync(bangGia.SanID.HasValue ? new[] { bangGia.SanID.Value } : null);
-            PrepareTimeOptions(bangGia.GioBatDau, bangGia.GioKetThuc);
-            return View("~/Views/Admin/BangGiaKhungGio/Edit.cshtml", bangGia);
+            TempData["Error"] = "Vui lòng thao tác chỉnh sửa bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
         }
 
         // POST: BangGiaKhungGio - Edit
@@ -182,9 +172,8 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
             }
 
-            await LoadSansAsync(bangGia.SanID.HasValue ? new[] { bangGia.SanID.Value } : null);
-            PrepareTimeOptions(bangGia.GioBatDau, bangGia.GioKetThuc);
-            return View("~/Views/Admin/BangGiaKhungGio/Edit.cshtml", bangGia);
+            SetModalState("edit-banggia", bangGia);
+            return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
         }
 
         // GET: BangGiaKhungGio - occupied hours for selected courts
@@ -202,23 +191,10 @@ namespace Pickleball_Smash.Controllers
         }
 
         // GET: BangGiaKhungGio - Delete
-        public async Task<IActionResult> Delete(int? id)
+        public IActionResult Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var bangGia = await _context.BangGiaKhungGio
-                .Include(x => x.SanPickleball)
-                .FirstOrDefaultAsync(x => x.MaGia == id);
-
-            if (bangGia == null)
-            {
-                return NotFound();
-            }
-
-            return View("~/Views/Admin/BangGiaKhungGio/Delete.cshtml", bangGia);
+            TempData["Error"] = "Chức năng xóa trực tiếp bằng popup, không dùng trang Delete riêng.";
+            return RedirectToAction(nameof(Index), "AdminBangGiaKhungGio");
         }
 
         // POST: BangGiaKhungGio - Delete
@@ -382,6 +358,17 @@ namespace Pickleball_Smash.Controllers
 
             ViewBag.StartHourOptions = startOptions;
             ViewBag.EndHourOptions = endOptions;
+        }
+
+        private void SetModalState(string openModal, object modalData)
+        {
+            TempData["OpenModal"] = openModal;
+            TempData["ModalData"] = JsonSerializer.Serialize(modalData);
+            TempData["ModalErrors"] = string.Join("\n", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct());
         }
     }
 }

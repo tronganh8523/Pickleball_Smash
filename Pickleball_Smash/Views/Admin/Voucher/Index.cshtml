@@ -1,0 +1,210 @@
+@model IEnumerable<Pickleball_Smash.Models.Voucher>
+
+@{
+    ViewData["Title"] = "Quản Lý Voucher";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    var openModal = TempData["OpenModal"] as string ?? string.Empty;
+    var modalData = TempData["ModalData"] as string ?? string.Empty;
+    var modalErrors = TempData["ModalErrors"] as string ?? string.Empty;
+}
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0 text-dark"><i class="fas fa-ticket-alt"></i> Danh Sách Voucher</h1>
+        </div>
+        <div class="col-md-4 text-right">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createVoucherModal">
+                <i class="fas fa-plus"></i> Thêm Voucher Mới
+            </button>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Mã</th>
+                            <th>Loại</th>
+                            <th>Giảm</th>
+                            <th>Số Lượng</th>
+                            <th>Bắt Đầu</th>
+                            <th>Kết Thúc</th>
+                            <th>Trạng Thái</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.MaVoucher</td>
+                                <td>@item.LoaiGiamGia</td>
+                                <td>@(item.GiaTriGiam?.ToString("F0") ?? "")</td>
+                                <td>@item.SoLuongDaDung / @item.SoLuongToiDa</td>
+                                <td>@item.NgayBatDau?.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@item.NgayKetThuc?.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    @{
+                                        var trangThaiClass = item.TrangThai switch
+                                        {
+                                            "Đang diễn ra" => "bg-success",
+                                            "Sắp diễn ra" => "bg-warning text-dark",
+                                            "Hết hạn" => "bg-danger",
+                                            _ => "bg-secondary"
+                                        };
+                                    }
+                                    <span class="badge @trangThaiClass">@item.TrangThai</span>
+                                </td>
+                                <td>
+                                    <button type="button"
+                                            class="btn btn-sm btn-warning js-open-edit-voucher"
+                                            data-voucher-id="@item.VoucherID"
+                                            data-ma-voucher="@item.MaVoucher"
+                                            data-mo-ta="@item.MoTa"
+                                            data-loai-giam-gia="@item.LoaiGiamGia"
+                                            data-gia-tri-giam="@(item.GiaTriGiam?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                            data-giam-toi-da="@(item.GiamToiDa?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                            data-gia-tri-don-toi-thieu="@(item.GiaTriDonToiThieu?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                            data-ngay-bat-dau="@(item.NgayBatDau?.ToString("yyyy-MM-ddTHH:mm") ?? "")"
+                                            data-ngay-ket-thuc="@(item.NgayKetThuc?.ToString("yyyy-MM-ddTHH:mm") ?? "")"
+                                            data-so-luong-toi-da="@(item.SoLuongToiDa?.ToString() ?? "")"
+                                            data-so-luong-da-dung="@(item.SoLuongDaDung?.ToString() ?? "")"
+                                            data-trang-thai="@item.TrangThai">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <a asp-controller="AdminVoucher" asp-action="Delete" asp-route-id="@item.VoucherID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@await Html.PartialAsync("~/Views/Admin/Voucher/_CreateModal.cshtml")
+@await Html.PartialAsync("~/Views/Admin/Voucher/_EditModal.cshtml")
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const openModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(openModal));
+            const modalDataJson = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalData));
+            const modalErrors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalErrors));
+
+            let restoredData = null;
+            if (modalDataJson) {
+                try {
+                    restoredData = JSON.parse(modalDataJson);
+                } catch (_) {
+                    restoredData = null;
+                }
+            }
+
+            const editModalElement = document.getElementById("editVoucherModal");
+            const createModalElement = document.getElementById("createVoucherModal");
+            if (editModalElement) {
+                const editModal = new bootstrap.Modal(editModalElement);
+                const createModal = createModalElement ? new bootstrap.Modal(createModalElement) : null;
+
+                const fillVoucherForm = function (form, data, isEdit) {
+                    if (!form || !data) return;
+                    form.querySelector("[name='MaVoucher']").value = data.MaVoucher || "";
+                    form.querySelector("[name='MoTa']").value = data.MoTa || "";
+                    form.querySelector("[name='LoaiGiamGia']").value = data.LoaiGiamGia || "";
+                    form.querySelector("[name='GiaTriGiam']").value = data.GiaTriGiam ?? "";
+                    form.querySelector("[name='GiamToiDa']").value = data.GiamToiDa ?? "";
+                    form.querySelector("[name='GiaTriDonToiThieu']").value = data.GiaTriDonToiThieu ?? "";
+                    form.querySelector("[name='NgayBatDau']").value = (data.NgayBatDau || "").slice(0, 16);
+                    form.querySelector("[name='NgayKetThuc']").value = (data.NgayKetThuc || "").slice(0, 16);
+                    form.querySelector("[name='SoLuongToiDa']").value = data.SoLuongToiDa ?? "";
+
+                    const soLuongDaDungInput = form.querySelector("[name='SoLuongDaDung']");
+                    if (soLuongDaDungInput) {
+                        soLuongDaDungInput.value = data.SoLuongDaDung ?? "0";
+                    }
+
+                    if (isEdit) {
+                        form.querySelector("[name='id']").value = data.VoucherID || "";
+                        form.querySelector("[name='VoucherID']").value = data.VoucherID || "";
+                        const trangThaiInput = form.querySelector("[name='TrangThai']");
+                        if (trangThaiInput) {
+                            trangThaiInput.value = data.TrangThai || "";
+                        }
+                    }
+                };
+
+                document.querySelectorAll(".js-open-edit-voucher").forEach(function (button) {
+                    button.addEventListener("click", function () {
+                        const id = this.dataset.voucherId || "";
+                        document.getElementById("editVoucherIdParam").value = id;
+                        document.getElementById("editVoucherID").value = id;
+                        document.getElementById("editMaVoucher").value = this.dataset.maVoucher || "";
+                        document.getElementById("editMoTaVoucher").value = this.dataset.moTa || "";
+                        document.getElementById("editLoaiGiamGia").value = this.dataset.loaiGiamGia || "";
+                        document.getElementById("editGiaTriGiam").value = this.dataset.giaTriGiam || "";
+                        document.getElementById("editGiamToiDa").value = this.dataset.giamToiDa || "";
+                        document.getElementById("editGiaTriDonToiThieu").value = this.dataset.giaTriDonToiThieu || "";
+                        document.getElementById("editNgayBatDau").value = this.dataset.ngayBatDau || "";
+                        document.getElementById("editNgayKetThuc").value = this.dataset.ngayKetThuc || "";
+                        document.getElementById("editSoLuongToiDa").value = this.dataset.soLuongToiDa || "";
+                        document.getElementById("editSoLuongDaDung").value = this.dataset.soLuongDaDung || "";
+                        document.getElementById("editTrangThaiVoucher").value = this.dataset.trangThai || "";
+                        editModal.show();
+                    });
+                });
+
+                if (openModal === "create-voucher" && createModal && restoredData) {
+                    fillVoucherForm(createModalElement.querySelector("form"), restoredData, false);
+                    createModal.show();
+                }
+
+                if (openModal === "edit-voucher" && restoredData) {
+                    fillVoucherForm(editModalElement.querySelector("form"), restoredData, true);
+                    editModal.show();
+                }
+            }
+
+            document.querySelectorAll(".js-loai-giam-gia").forEach(function (select) {
+                const form = select.closest("form");
+                const giaTriInput = form?.querySelector(".js-gia-tri-giam");
+                if (!giaTriInput) return;
+
+                const applyRule = function () {
+                    const loai = select.value;
+                    giaTriInput.removeAttribute("max");
+                    if (loai === "%") {
+                        giaTriInput.min = "1";
+                        giaTriInput.max = "100";
+                    } else {
+                        giaTriInput.min = "0.01";
+                    }
+                };
+
+                select.addEventListener("change", applyRule);
+                applyRule();
+            });
+
+            if (modalErrors && window.Swal) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Dữ liệu chưa hợp lệ",
+                    html: modalErrors.replace(/\n/g, "<br>"),
+                    confirmButtonText: "Đã hiểu"
+                });
+            }
+        });
+    </script>
+}

@@ -1,0 +1,182 @@
+@model IEnumerable<Pickleball_Smash.Models.NguoiDung>
+
+@{
+    ViewData["Title"] = "Quản Lý Tài Khoản";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    var openModal = TempData["OpenModal"] as string ?? string.Empty;
+    var modalData = TempData["ModalData"] as string ?? string.Empty;
+    var modalErrors = TempData["ModalErrors"] as string ?? string.Empty;
+}
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0 text-dark"><i class="fas fa-users"></i> Danh Sách Tài Khoản</h1>
+        </div>
+        <div class="col-md-4 text-right">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                <i class="fas fa-plus"></i> Thêm Tài Khoản Mới
+            </button>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên Đăng Nhập</th>
+                            <th>Họ Tên</th>
+                            <th>Email</th>
+                            <th>SĐT</th>
+                            <th>Vai Trò</th>
+                            <th>Ngày Tạo</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Any())
+                        {
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td>@item.NguoiDungID</td>
+                                    <td>@item.TenDangNhap</td>
+                                    <td>@item.HoTen</td>
+                                    <td>@item.Email</td>
+                                    <td>@item.SDT</td>
+                                    <td>
+                                        <span class="badge @(item.VaiTro == "Admin" ? "bg-danger" : item.VaiTro == "Manager" ? "bg-warning text-dark" : "bg-info")">
+                                            @item.VaiTro
+                                        </span>
+                                    </td>
+                                    <td>@item.NgayTao?.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <button type="button"
+                                                class="btn btn-sm btn-warning js-open-edit-user"
+                                                data-nguoi-dung-id="@item.NguoiDungID"
+                                                data-ten-dang-nhap="@item.TenDangNhap"
+                                                data-ho-ten="@item.HoTen"
+                                                data-email="@item.Email"
+                                                data-sdt="@item.SDT"
+                                                data-gioi-tinh="@item.GioiTinh"
+                                                data-vai-tro="@item.VaiTro"
+                                                data-ngay-tao="@(item.NgayTao?.ToString("yyyy-MM-ddTHH:mm") ?? "")">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <a asp-controller="AdminUser" asp-action="Delete" asp-route-id="@item.NguoiDungID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">Chưa có tài khoản nào.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@await Html.PartialAsync("~/Views/Admin/User/_CreateModal.cshtml")
+@await Html.PartialAsync("~/Views/Admin/User/_EditModal.cshtml")
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const openModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(openModal));
+            const modalDataJson = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalData));
+            const modalErrors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalErrors));
+
+            let restoredData = null;
+            if (modalDataJson) {
+                try {
+                    restoredData = JSON.parse(modalDataJson);
+                } catch (_) {
+                    restoredData = null;
+                }
+            }
+
+            const editModalElement = document.getElementById("editUserModal");
+            const createModalElement = document.getElementById("createUserModal");
+            if (!editModalElement) return;
+
+            const editModal = new bootstrap.Modal(editModalElement);
+            const createModal = createModalElement ? new bootstrap.Modal(createModalElement) : null;
+
+            const fillUserForm = function (form, data, isEdit) {
+                if (!form || !data) return;
+                form.querySelector("[name='TenDangNhap']").value = data.TenDangNhap || "";
+                form.querySelector("[name='MatKhau']").value = data.MatKhau || "";
+                form.querySelector("[name='HoTen']").value = data.HoTen || "";
+                form.querySelector("[name='Email']").value = data.Email || "";
+                form.querySelector("[name='SDT']").value = data.SDT || "";
+                form.querySelector("[name='GioiTinh']").value = data.GioiTinh || "";
+                form.querySelector("[name='VaiTro']").value = data.VaiTro || "";
+
+                if (isEdit) {
+                    form.querySelector("[name='id']").value = data.NguoiDungID || "";
+                    form.querySelector("[name='NguoiDungID']").value = data.NguoiDungID || "";
+                    const ngayTaoRaw = (data.NgayTao || "").slice(0, 19);
+                    form.querySelector("[name='NgayTao']").value = ngayTaoRaw;
+                }
+            };
+
+            document.querySelectorAll(".js-open-edit-user").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const id = this.dataset.nguoiDungId || "";
+                    document.getElementById("editUserIdParam").value = id;
+                    document.getElementById("editNguoiDungID").value = id;
+                    document.getElementById("editTenDangNhap").value = this.dataset.tenDangNhap || "";
+                    document.getElementById("editMatKhau").value = "";
+                    document.getElementById("editHoTen").value = this.dataset.hoTen || "";
+                    document.getElementById("editEmail").value = this.dataset.email || "";
+                    document.getElementById("editSDT").value = this.dataset.sdt || "";
+                    document.getElementById("editGioiTinh").value = this.dataset.gioiTinh || "";
+                    document.getElementById("editVaiTro").value = this.dataset.vaiTro || "";
+
+                    const ngayTaoRaw = this.dataset.ngayTao || "";
+                    document.getElementById("editNgayTao").value = ngayTaoRaw ? `${ngayTaoRaw}:00` : "";
+
+                    editModal.show();
+                });
+            });
+
+            if (openModal === "create-user" && createModal && restoredData) {
+                fillUserForm(createModalElement.querySelector("form"), restoredData, false);
+                createModal.show();
+            }
+
+            if (openModal === "edit-user" && restoredData) {
+                fillUserForm(editModalElement.querySelector("form"), restoredData, true);
+                editModal.show();
+            }
+
+            if (modalErrors && window.Swal) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Dữ liệu chưa hợp lệ",
+                    html: modalErrors.replace(/\n/g, "<br>"),
+                    confirmButtonText: "Đã hiểu"
+                });
+            }
+        });
+    </script>
+}

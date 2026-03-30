@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
+using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
@@ -39,13 +40,14 @@ namespace Pickleball_Smash.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return View("~/Views/Admin/Voucher/VoucherIndex.cshtml", items);
+            return View("~/Views/Admin/Voucher/Index.cshtml", items);
         }
 
         // GET: Voucher - Create
         public IActionResult Create()
         {
-            return View("~/Views/Admin/Voucher/VoucherCreate.cshtml");
+            TempData["Error"] = "Vui lòng thao tác tạo voucher bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminVoucher");
         }
 
         // POST: Voucher - Create
@@ -78,16 +80,15 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), "AdminVoucher");
             }
 
-            return View("~/Views/Admin/Voucher/VoucherCreate.cshtml", voucher);
+            SetModalState("create-voucher", voucher);
+            return RedirectToAction(nameof(Index), "AdminVoucher");
         }
 
         // GET: Voucher - Edit
-        public async Task<IActionResult> Edit(int? id)
+        public IActionResult Edit(int? id)
         {
-            if (id == null) return NotFound();
-            var voucher = await _context.Voucher.FindAsync(id);
-            if (voucher == null) return NotFound();
-            return View("~/Views/Admin/Voucher/VoucherEdit.cshtml", voucher);
+            TempData["Error"] = "Vui lòng thao tác chỉnh sửa voucher bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminVoucher");
         }
 
         // POST: Voucher - Edit
@@ -132,16 +133,15 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), "AdminVoucher");
             }
 
-            return View("~/Views/Admin/Voucher/VoucherEdit.cshtml", voucher);
+            SetModalState("edit-voucher", voucher);
+            return RedirectToAction(nameof(Index), "AdminVoucher");
         }
 
         // GET: Voucher - Delete
-        public async Task<IActionResult> Delete(int? id)
+        public IActionResult Delete(int? id)
         {
-            if (id == null) return NotFound();
-            var voucher = await _context.Voucher.FirstOrDefaultAsync(m => m.VoucherID == id);
-            if (voucher == null) return NotFound();
-            return View("~/Views/Admin/Voucher/VoucherDelete.cshtml", voucher);
+            TempData["Error"] = "Chức năng xóa trực tiếp bằng popup, không dùng trang Delete riêng.";
+            return RedirectToAction(nameof(Index), "AdminVoucher");
         }
 
         // POST: Voucher - Delete
@@ -223,6 +223,17 @@ namespace Pickleball_Smash.Controllers
             }
 
             return "Hết hạn";
+        }
+
+        private void SetModalState(string openModal, object modalData)
+        {
+            TempData["OpenModal"] = openModal;
+            TempData["ModalData"] = JsonSerializer.Serialize(modalData);
+            TempData["ModalErrors"] = string.Join("\n", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct());
         }
     }
 }

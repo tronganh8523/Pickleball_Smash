@@ -1,0 +1,45 @@
+<div class="modal fade" id="editBangGiaModal" tabindex="-1" aria-labelledby="editBangGiaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editBangGiaModalLabel">Chỉnh Sửa Bảng Giá Khung Giờ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminBangGiaKhungGio" asp-action="Edit" method="post" data-swal-skip="true">
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="editBangGiaIdParam" />
+                    <input type="hidden" name="MaGia" id="editBangGiaMaGia" />
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Sân</label>
+                            <select name="SanID" id="editBangGiaSanID" class="form-select" asp-items="ViewBag.Sans">
+                                <option value="">-- chọn --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Giờ bắt đầu</label>
+                            <select name="GioBatDau" id="editBangGiaGioBatDau" class="form-select" asp-items="ViewBag.StartHourOptions">
+                                <option value="">-- Chọn giờ bắt đầu --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Giờ kết thúc</label>
+                            <select name="GioKetThuc" id="editBangGiaGioKetThuc" class="form-select" asp-items="ViewBag.EndHourOptions">
+                                <option value="">-- Chọn giờ kết thúc --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Giá tiền</label>
+                            <input name="GiaTien" id="editBangGiaGiaTien" class="form-control" type="number" step="1000" min="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Cập Nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

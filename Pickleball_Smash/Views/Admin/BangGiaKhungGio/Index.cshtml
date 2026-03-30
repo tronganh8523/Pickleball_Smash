@@ -3,6 +3,10 @@
 @{
     ViewData["Title"] = "Quản Lý Bảng Giá Khung Giờ";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    var openModal = TempData["OpenModal"] as string ?? string.Empty;
+    var modalData = TempData["ModalData"] as string ?? string.Empty;
+    var modalErrors = TempData["ModalErrors"] as string ?? string.Empty;
 }
 
 <div class="container-fluid py-4">
@@ -11,9 +15,9 @@
             <h1 class="h3 mb-0 text-dark"><i class="fas fa-clock"></i> Bảng Giá Khung Giờ</h1>
         </div>
         <div class="col-md-4 text-right">
-            <a asp-controller="AdminBangGiaKhungGio" asp-action="Create" class="btn btn-primary">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBangGiaModal">
                 <i class="fas fa-plus"></i> Thêm Bảng Giá
-            </a>
+            </button>
         </div>
     </div>
 
@@ -46,7 +50,15 @@
                                     <td>@(item.GioKetThuc?.ToString("HH\\:mm") ?? "-")</td>
                                     <td>@(item.GiaTien?.ToString("N0") ?? "0") VNĐ</td>
                                     <td>
-                                        <a asp-controller="AdminBangGiaKhungGio" asp-action="Edit" asp-route-id="@item.MaGia" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                                        <button type="button"
+                                                class="btn btn-sm btn-warning js-open-edit-banggia"
+                                                data-ma-gia="@item.MaGia"
+                                                data-san-id="@item.SanID"
+                                                data-gio-bat-dau="@(item.GioBatDau?.ToString("HH\\:mm") ?? "")"
+                                                data-gio-ket-thuc="@(item.GioKetThuc?.ToString("HH\\:mm") ?? "")"
+                                                data-gia-tien="@(item.GiaTien?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                         <a asp-controller="AdminBangGiaKhungGio" asp-action="Delete" asp-route-id="@item.MaGia" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
                                     </td>
                                 </tr>
@@ -64,3 +76,101 @@
         </div>
     </div>
 </div>
+
+@await Html.PartialAsync("~/Views/Admin/BangGiaKhungGio/_CreateModal.cshtml")
+@await Html.PartialAsync("~/Views/Admin/BangGiaKhungGio/_EditModal.cshtml")
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const openModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(openModal));
+            const modalDataJson = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalData));
+            const modalErrors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalErrors));
+
+            let restoredData = null;
+            if (modalDataJson) {
+                try {
+                    restoredData = JSON.parse(modalDataJson);
+                } catch (_) {
+                    restoredData = null;
+                }
+            }
+
+            const normalizeTime = function (value) {
+                if (!value) return "";
+                const str = String(value);
+                if (str.length >= 5) {
+                    return str.slice(0, 5);
+                }
+                return str;
+            };
+
+            const editModalElement = document.getElementById("editBangGiaModal");
+            const createModalElement = document.getElementById("createBangGiaModal");
+            if (!editModalElement) return;
+
+            const editModal = new bootstrap.Modal(editModalElement);
+            const createModal = createModalElement ? new bootstrap.Modal(createModalElement) : null;
+            const editIdParam = document.getElementById("editBangGiaIdParam");
+            const editMaGia = document.getElementById("editBangGiaMaGia");
+            const editSanID = document.getElementById("editBangGiaSanID");
+            const editGioBatDau = document.getElementById("editBangGiaGioBatDau");
+            const editGioKetThuc = document.getElementById("editBangGiaGioKetThuc");
+            const editGiaTien = document.getElementById("editBangGiaGiaTien");
+
+            document.querySelectorAll(".js-open-edit-banggia").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const maGia = this.dataset.maGia || "";
+                    editIdParam.value = maGia;
+                    editMaGia.value = maGia;
+                    editSanID.value = this.dataset.sanId || "";
+                    editGioBatDau.value = this.dataset.gioBatDau || "";
+                    editGioKetThuc.value = this.dataset.gioKetThuc || "";
+                    editGiaTien.value = this.dataset.giaTien || "";
+                    editModal.show();
+                });
+            });
+
+            if (openModal === "create-banggia" && createModal && restoredData) {
+                const createForm = createModalElement.querySelector("form");
+                if (createForm) {
+                    const selectSanIds = createForm.querySelector("[name='SanIDs']");
+                    const selectedIds = Array.isArray(restoredData.SanIDs)
+                        ? restoredData.SanIDs.map(function (x) { return String(x); })
+                        : [];
+
+                    if (selectSanIds) {
+                        Array.from(selectSanIds.options).forEach(function (opt) {
+                            opt.selected = selectedIds.includes(opt.value);
+                        });
+                    }
+
+                    createForm.querySelector("[name='GioBatDau']").value = normalizeTime(restoredData.GioBatDau);
+                    createForm.querySelector("[name='GioKetThuc']").value = normalizeTime(restoredData.GioKetThuc);
+                    createForm.querySelector("[name='GiaTien']").value = restoredData.GiaTien ?? "";
+                }
+                createModal.show();
+            }
+
+            if (openModal === "edit-banggia" && restoredData) {
+                const maGia = restoredData.MaGia || "";
+                editIdParam.value = maGia;
+                editMaGia.value = maGia;
+                editSanID.value = restoredData.SanID || "";
+                editGioBatDau.value = normalizeTime(restoredData.GioBatDau);
+                editGioKetThuc.value = normalizeTime(restoredData.GioKetThuc);
+                editGiaTien.value = restoredData.GiaTien ?? "";
+                editModal.show();
+            }
+
+            if (modalErrors && window.Swal) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Dữ liệu chưa hợp lệ",
+                    html: modalErrors.replace(/\n/g, "<br>"),
+                    confirmButtonText: "Đã hiểu"
+                });
+            }
+        });
+    </script>
+}

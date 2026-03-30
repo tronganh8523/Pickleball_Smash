@@ -1,0 +1,164 @@
+@model IEnumerable<Pickleball_Smash.Models.SanPickleball>
+
+@{
+    ViewData["Title"] = "Quản Lý Sân Pickleball";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    var openModal = TempData["OpenModal"] as string ?? string.Empty;
+    var modalData = TempData["ModalData"] as string ?? string.Empty;
+    var modalErrors = TempData["ModalErrors"] as string ?? string.Empty;
+}
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0 text-dark"><i class="fas fa-store"></i> Danh Sách Sân Pickleball</h1>
+        </div>
+        <div class="col-md-4 text-right">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createSanModal">
+                <i class="fas fa-plus"></i> Thêm Sân Mới
+            </button>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Tên</th>
+                            <th>Loại Sân</th>
+                            <th>Giá Cơ Bản</th>
+                            <th>Trạng Thái</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.TenSan</td>
+                                <td>@item.LoaiSan</td>
+                                <td>@(item.GiaCoBan?.ToString("F0") ?? "")</td>
+                                <td>@item.TrangThai</td>
+                                <td>
+                                    <a asp-controller="AdminHinhAnhSan" asp-action="Index" asp-route-sanId="@item.SanID" class="btn btn-sm btn-info" title="Quản lý ảnh"><i class="fas fa-image"></i></a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-warning js-open-edit-san"
+                                            data-san-id="@item.SanID"
+                                            data-ten-san="@item.TenSan"
+                                            data-loai-san="@item.LoaiSan"
+                                            data-mo-ta="@item.MoTa"
+                                            data-gia-co-ban="@(item.GiaCoBan?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                                            data-trang-thai="@item.TrangThai">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <a asp-controller="AdminSan" asp-action="Delete" asp-route-id="@item.SanID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@await Html.PartialAsync("~/Views/Admin/San/_CreateModal.cshtml")
+@await Html.PartialAsync("~/Views/Admin/San/_EditModal.cshtml")
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const openModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(openModal));
+            const modalDataJson = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalData));
+            const modalErrors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalErrors));
+
+            let restoredData = null;
+            if (modalDataJson) {
+                try {
+                    restoredData = JSON.parse(modalDataJson);
+                } catch (_) {
+                    restoredData = null;
+                }
+            }
+
+            const editModalElement = document.getElementById("editSanModal");
+            const createModalElement = document.getElementById("createSanModal");
+            if (!editModalElement) {
+                return;
+            }
+
+            const editModal = new bootstrap.Modal(editModalElement);
+            const createModal = createModalElement ? new bootstrap.Modal(createModalElement) : null;
+
+            const editSanID = document.getElementById("editSanID");
+            const editIdParam = document.getElementById("editIdParam");
+            const editTenSan = document.getElementById("editTenSan");
+            const editLoaiSan = document.getElementById("editLoaiSan");
+            const editGiaCoBan = document.getElementById("editGiaCoBan");
+            const editTrangThai = document.getElementById("editTrangThai");
+            const editMoTa = document.getElementById("editMoTa");
+
+            document.querySelectorAll(".js-open-edit-san").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    editSanID.value = this.dataset.sanId || "";
+                    editIdParam.value = this.dataset.sanId || "";
+                    editTenSan.value = this.dataset.tenSan || "";
+                    editLoaiSan.value = this.dataset.loaiSan || "";
+                    editGiaCoBan.value = this.dataset.giaCoBan || "";
+                    editTrangThai.value = this.dataset.trangThai || "Trống";
+                    editMoTa.value = this.dataset.moTa || "";
+
+                    editModal.show();
+                });
+            });
+
+            if (openModal === "create-san" && createModal && restoredData) {
+                const createForm = createModalElement.querySelector("form");
+                if (createForm) {
+                    createForm.querySelector("[name='TenSan']").value = restoredData.TenSan || "";
+                    createForm.querySelector("[name='LoaiSan']").value = restoredData.LoaiSan || "";
+                    createForm.querySelector("[name='GiaCoBan']").value = restoredData.GiaCoBan ?? "";
+                    createForm.querySelector("[name='TrangThai']").value = restoredData.TrangThai || "Trống";
+                    createForm.querySelector("[name='MoTa']").value = restoredData.MoTa || "";
+                }
+                createModal.show();
+            }
+
+            if (openModal === "edit-san" && restoredData) {
+                editSanID.value = restoredData.SanID || "";
+                editIdParam.value = restoredData.SanID || "";
+                editTenSan.value = restoredData.TenSan || "";
+                editLoaiSan.value = restoredData.LoaiSan || "";
+                editGiaCoBan.value = restoredData.GiaCoBan ?? "";
+                editTrangThai.value = restoredData.TrangThai || "Trống";
+                editMoTa.value = restoredData.MoTa || "";
+                editModal.show();
+            }
+
+            if (modalErrors && window.Swal) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Dữ liệu chưa hợp lệ",
+                    html: modalErrors.replace(/\n/g, "<br>"),
+                    confirmButtonText: "Đã hiểu"
+                });
+            }
+        });
+    </script>
+}

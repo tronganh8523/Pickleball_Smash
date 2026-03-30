@@ -1,0 +1,32 @@
+<div class="modal fade" id="createHinhAnhModal" tabindex="-1" aria-labelledby="createHinhAnhModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createHinhAnhModalLabel">Thêm Ảnh - @ViewBag.TenSan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminHinhAnhSan" asp-action="Create" method="post" enctype="multipart/form-data" data-swal-skip="true">
+                <div class="modal-body">
+                    <input type="hidden" name="SanID" value="@ViewBag.SanId" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Chọn Ảnh Từ Máy Tính</label>
+                        <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                        <small class="form-text text-muted">Hỗ trợ: .jpg, .jpeg, .png, .gif, .webp</small>
+                    </div>
+
+                    <div class="text-muted mb-2">Hoặc nhập URL ảnh:</div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Đường Dẫn Ảnh</label>
+                        <input name="DuongDanURL" class="form-control" placeholder="https://example.com/image.jpg" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

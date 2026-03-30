@@ -1,0 +1,41 @@
+<div class="modal fade" id="editHinhAnhModal" tabindex="-1" aria-labelledby="editHinhAnhModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editHinhAnhModalLabel">Chỉnh Sửa Ảnh - @ViewBag.TenSan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminHinhAnhSan" asp-action="Edit" method="post" enctype="multipart/form-data" data-swal-skip="true">
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="editHinhAnhIdParam" />
+                    <input type="hidden" name="HinhAnhID" id="editHinhAnhID" />
+                    <input type="hidden" name="SanID" id="editHinhAnhSanID" value="@ViewBag.SanId" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Thay Ảnh Từ Máy Tính</label>
+                        <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                        <small class="form-text text-muted">Nếu chọn file, hệ thống sẽ ưu tiên file tải lên.</small>
+                    </div>
+
+                    <div class="text-muted mb-2">Hoặc cập nhật URL ảnh:</div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Đường Dẫn Ảnh</label>
+                        <input name="DuongDanURL" id="editDuongDanURL" class="form-control" placeholder="https://example.com/image.jpg" />
+                    </div>
+
+                    <div class="mb-3" id="editPreviewWrap" style="display:none;">
+                        <label class="form-label">Xem Trước</label>
+                        <div>
+                            <img id="editPreviewImg" src="" alt="Ảnh sân" style="width: 240px; max-width: 100%; border-radius: 8px;" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

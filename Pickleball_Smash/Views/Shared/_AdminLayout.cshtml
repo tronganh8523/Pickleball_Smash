@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet" href="~/css/admin-layout.css" asp-append-version="true">
     @RenderSection("Styles", required: false)
     </head>
@@ -81,6 +82,11 @@
                     <h6 class="sidebar-heading">Hệ thống</h6>
                     <ul class="nav flex-column">
                         <li class="nav-item">
+                            <a class="nav-link" href="@Url.Action("Dashboard", "Manager")">
+                                <i class="fas fa-user-tie"></i> Giao diện Manager
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="@Url.Action("Index", "Home")">
                                 <i class="fas fa-arrow-left"></i> Quay lại Website
                             </a>
@@ -113,16 +119,184 @@
                 <main class="container-fluid p-4">
                     @RenderBody()
                 </main>
+
+                <form id="adminAntiForgeryForm" method="post" class="d-none">
+                    @Html.AntiForgeryToken()
+                </form>
             </div>
         </div>
 
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
             $(document).ready(function () {
             $('#sidebarCollapse').on('click', function () {
             $('#sidebar').toggleClass('active');
             });
+            });
+
+            document.addEventListener("DOMContentLoaded", function () {
+                if (typeof Swal === "undefined") {
+                    return;
+                }
+
+                // Convert TempData bootstrap alerts to SweetAlert2 popups.
+                const flashAlerts = document.querySelectorAll(".alert.alert-success, .alert.alert-danger, .alert.alert-warning, .alert.alert-info");
+                flashAlerts.forEach(function (alertEl) {
+                    if (alertEl.hasAttribute("data-valmsg-summary")) {
+                        return;
+                    }
+
+                    const text = (alertEl.textContent || "").trim();
+                    if (!text) {
+                        return;
+                    }
+
+                    let icon = "info";
+                    if (alertEl.classList.contains("alert-success")) {
+                        icon = "success";
+                    } else if (alertEl.classList.contains("alert-danger")) {
+                        icon = "error";
+                    } else if (alertEl.classList.contains("alert-warning")) {
+                        icon = "warning";
+                    }
+
+                    Swal.fire({
+                        icon: icon,
+                        text: text,
+                        confirmButtonText: "OK"
+                    });
+
+                    alertEl.remove();
+                });
+
+                // Use SweetAlert2 confirmation on Admin CRUD form submits.
+                document.addEventListener("submit", function (event) {
+                    const form = event.target;
+                    if (!form || form.dataset.swalConfirmed === "true") {
+                        return;
+                    }
+
+                    if (form.dataset.swalSkip === "true") {
+                        return;
+                    }
+
+                    const method = (form.getAttribute("method") || "").toLowerCase();
+                    const action = (form.getAttribute("action") || "").toLowerCase();
+                    if (method !== "post") {
+                        return;
+                    }
+
+                    const submitter = event.submitter;
+                    if (!submitter) {
+                        return;
+                    }
+
+                    const text = (submitter.textContent || "").trim().toLowerCase();
+                    let operation = "save";
+                    if (action.includes("/delete") || submitter.classList.contains("btn-danger") || text.includes("xóa")) {
+                        operation = "delete";
+                    } else if (action.includes("/create") || text.includes("thêm") || text.includes("tạo")) {
+                        operation = "create";
+                    } else if (action.includes("/edit") || action.includes("/update") || text.includes("lưu") || text.includes("cập nhật")) {
+                        operation = "update";
+                    }
+
+                    if (operation === "save") {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    let icon = "question";
+                    let title = "Xác nhận thao tác";
+                    let message = "Bạn có chắc chắn muốn thực hiện thao tác này không?";
+                    let confirmText = "Đồng ý";
+
+                    if (operation === "create") {
+                        title = "Xác nhận tạo mới";
+                        message = "Bạn có muốn tạo dữ liệu mới không?";
+                        confirmText = "Tạo mới";
+                    } else if (operation === "update") {
+                        title = "Xác nhận cập nhật";
+                        message = "Bạn có muốn lưu thay đổi này không?";
+                        confirmText = "Cập nhật";
+                    } else if (operation === "delete") {
+                        icon = "warning";
+                        title = "Xác nhận xóa";
+                        message = "Bạn có chắc chắn muốn xóa dữ liệu này không?";
+                        confirmText = "Xóa";
+                    }
+
+                    Swal.fire({
+                        icon: icon,
+                        title: title,
+                        text: message,
+                        showCancelButton: true,
+                        confirmButtonText: confirmText,
+                        cancelButtonText: "Hủy"
+                    }).then(function (result) {
+                        if (!result.isConfirmed) {
+                            return;
+                        }
+
+                        form.dataset.swalConfirmed = "true";
+                        if (typeof form.requestSubmit === "function") {
+                            form.requestSubmit(submitter);
+                        } else {
+                            form.submit();
+                        }
+                    });
+                }, true);
+
+                // Use SweetAlert2 when clicking delete links in list/table pages.
+                document.addEventListener("click", function (event) {
+                    const anchor = event.target.closest("a.btn-danger");
+                    if (!anchor) {
+                        return;
+                    }
+
+                    const href = (anchor.getAttribute("href") || "").toLowerCase();
+                    if (!href.includes("/delete")) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Xác nhận xóa",
+                        text: "Bạn có chắc chắn muốn xóa dữ liệu này không?",
+                        showCancelButton: true,
+                        confirmButtonText: "Xóa",
+                        cancelButtonText: "Hủy"
+                    }).then(function (result) {
+                        if (!result.isConfirmed) {
+                            return;
+                        }
+
+                        const tokenInput = document.querySelector('#adminAntiForgeryForm input[name="__RequestVerificationToken"]');
+                        const token = tokenInput ? tokenInput.value : "";
+
+                        const form = document.createElement("form");
+                        form.method = "post";
+                        form.action = anchor.href;
+                        form.style.display = "none";
+                        form.dataset.swalConfirmed = "true";
+
+                        if (token) {
+                            const hiddenToken = document.createElement("input");
+                            hiddenToken.type = "hidden";
+                            hiddenToken.name = "__RequestVerificationToken";
+                            hiddenToken.value = token;
+                            form.appendChild(hiddenToken);
+                        }
+
+                        document.body.appendChild(form);
+                        form.submit();
+                    });
+                });
             });
         </script>
         @await RenderSectionAsync("Scripts", required: false)

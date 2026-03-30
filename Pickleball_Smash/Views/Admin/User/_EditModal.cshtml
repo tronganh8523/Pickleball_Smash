@@ -1,0 +1,62 @@
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editUserModalLabel">Chỉnh Sửa Tài Khoản</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminUser" asp-action="Edit" method="post" data-swal-skip="true">
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="editUserIdParam" />
+                    <input type="hidden" name="NguoiDungID" id="editNguoiDungID" />
+                    <input type="hidden" name="NgayTao" id="editNgayTao" />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tên Đăng Nhập</label>
+                            <input name="TenDangNhap" id="editTenDangNhap" class="form-control" minlength="6" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mật Khẩu</label>
+                            <input name="MatKhau" id="editMatKhau" class="form-control" type="password" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Họ Tên</label>
+                            <input name="HoTen" id="editHoTen" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input name="Email" id="editEmail" class="form-control" type="email" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Số Điện Thoại</label>
+                            <input name="SDT" id="editSDT" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Giới Tính</label>
+                            <select name="GioiTinh" id="editGioiTinh" class="form-select">
+                                <option value="">-- chọn --</option>
+                                <option value="Nam">Nam</option>
+                                <option value="Nữ">Nữ</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Vai Trò</label>
+                            <select name="VaiTro" id="editVaiTro" class="form-select" required>
+                                <option value="">-- chọn --</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Manager">Manager</option>
+                                <option value="User">User</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Cập Nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

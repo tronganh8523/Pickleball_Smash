@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +48,19 @@ using (var scope = app.Services.CreateScope())
         });
     }
 
+    if (!db.NguoiDung.Any(x => x.VaiTro == "Manager"))
+    {
+        db.NguoiDung.Add(new Pickleball_Smash.Models.NguoiDung
+        {
+            TenDangNhap = "manager01",
+            MatKhau = BCrypt.Net.BCrypt.HashPassword("Manager@123"),
+            Email = "manager01@pickleball.local",
+            HoTen = "System Manager",
+            VaiTro = "Manager",
+            NgayTao = DateTime.Now
+        });
+    }
+
     db.SaveChanges();
 }
 
@@ -60,6 +74,11 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.ContentRootPath, "Img")),
+    RequestPath = "/Img"
+});
 
 app.UseRouting();
 

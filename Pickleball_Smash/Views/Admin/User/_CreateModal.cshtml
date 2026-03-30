@@ -1,0 +1,58 @@
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createUserModalLabel">Thêm Tài Khoản</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminUser" asp-action="Create" method="post" data-swal-skip="true">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tên Đăng Nhập</label>
+                            <input name="TenDangNhap" class="form-control" minlength="6" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mật Khẩu</label>
+                            <input name="MatKhau" class="form-control" type="password" minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Họ Tên</label>
+                            <input name="HoTen" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input name="Email" class="form-control" type="email" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Số Điện Thoại</label>
+                            <input name="SDT" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Giới Tính</label>
+                            <select name="GioiTinh" class="form-select">
+                                <option value="">-- chọn --</option>
+                                <option value="Nam">Nam</option>
+                                <option value="Nữ">Nữ</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Vai Trò</label>
+                            <select name="VaiTro" class="form-select" required>
+                                <option value="">-- chọn --</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Manager">Manager</option>
+                                <option value="User">User</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

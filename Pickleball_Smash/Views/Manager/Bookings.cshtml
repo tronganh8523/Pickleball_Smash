@@ -1,0 +1,60 @@
+@model IEnumerable<Pickleball_Smash.Models.DonDatSan>
+
+@{
+    ViewData["Title"] = "Danh sách đặt sân";
+    Layout = "~/Views/Shared/_ManagerLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/manager-dashboard.css" asp-append-version="true" />
+}
+
+<div class="manager-page-head">
+    <h1>Danh sách đặt sân</h1>
+    <p>Theo dõi toàn bộ đơn đặt sân theo thời gian tạo mới nhất.</p>
+</div>
+
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Mã đơn</th>
+                    <th>Khách hàng</th>
+                    <th>Sân</th>
+                    <th>Khung giờ</th>
+                    <th>Tổng tiền</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Any())
+                {
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>#@item.DonDatSanID</td>
+                            <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</td>
+                            <td>@(item.SanPickleball?.TenSan ?? "N/A")</td>
+                            <td>
+                                @(item.ThoiGianBatDau?.ToString("HH\\:mm") ?? "--:--")
+                                -
+                                @(item.ThoiGianKetThuc?.ToString("HH\\:mm") ?? "--:--")
+                            </td>
+                            <td>@((item.TongTien ?? 0).ToString("N0")) đ</td>
+                            <td>@(item.TrangThaiDon ?? "-")</td>
+                            <td>@(item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="7" class="text-center">Chưa có dữ liệu đơn đặt sân.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Pickleball_Smash.Controllers
@@ -21,13 +22,14 @@ namespace Pickleball_Smash.Controllers
             var items = await _context.NguoiDung
                 .OrderByDescending(x => x.NgayTao)
                 .ToListAsync();
-            return View("~/Views/Admin/User/UserIndex.cshtml", items);
+            return View("~/Views/Admin/User/Index.cshtml", items);
         }
 
         // GET: User - Create
         public IActionResult Create()
         {
-            return View("~/Views/Admin/User/UserCreate.cshtml");
+            TempData["Error"] = "Vui lòng thao tác tạo tài khoản bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminUser");
         }
 
         // POST: User - Create
@@ -65,16 +67,15 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), "AdminUser");
             }
 
-            return View("~/Views/Admin/User/UserCreate.cshtml", nguoiDung);
+            SetModalState("create-user", nguoiDung);
+            return RedirectToAction(nameof(Index), "AdminUser");
         }
 
         // GET: User - Edit
-        public async Task<IActionResult> Edit(int? id)
+        public IActionResult Edit(int? id)
         {
-            if (id == null) return NotFound();
-            var nguoiDung = await _context.NguoiDung.FindAsync(id);
-            if (nguoiDung == null) return NotFound();
-            return View("~/Views/Admin/User/UserEdit.cshtml", nguoiDung);
+            TempData["Error"] = "Vui lòng thao tác chỉnh sửa tài khoản bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminUser");
         }
 
         // POST: User - Edit
@@ -126,16 +127,15 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), "AdminUser");
             }
 
-            return View("~/Views/Admin/User/UserEdit.cshtml", nguoiDung);
+            SetModalState("edit-user", nguoiDung);
+            return RedirectToAction(nameof(Index), "AdminUser");
         }
 
         // GET: User - Delete
-        public async Task<IActionResult> Delete(int? id)
+        public IActionResult Delete(int? id)
         {
-            if (id == null) return NotFound();
-            var nguoiDung = await _context.NguoiDung.FirstOrDefaultAsync(m => m.NguoiDungID == id);
-            if (nguoiDung == null) return NotFound();
-            return View("~/Views/Admin/User/UserDelete.cshtml", nguoiDung);
+            TempData["Error"] = "Chức năng xóa trực tiếp bằng popup, không dùng trang Delete riêng.";
+            return RedirectToAction(nameof(Index), "AdminUser");
         }
 
         // POST: User - Delete
@@ -220,9 +220,10 @@ namespace Pickleball_Smash.Controllers
                 ModelState.AddModelError("VaiTro", "Vai trò là bắt buộc.");
             }
             else if (!string.Equals(nguoiDung.VaiTro, "Admin", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(nguoiDung.VaiTro, "Manager", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(nguoiDung.VaiTro, "User", StringComparison.OrdinalIgnoreCase))
             {
-                ModelState.AddModelError("VaiTro", "Vai trò chỉ được chọn Admin hoặc User.");
+                ModelState.AddModelError("VaiTro", "Vai trò chỉ được chọn Admin, Manager hoặc User.");
             }
         }
 
@@ -256,6 +257,17 @@ namespace Pickleball_Smash.Controllers
                 x.SDT != null
                 && x.SDT == normalized
                 && (!excludeUserId.HasValue || x.NguoiDungID != excludeUserId.Value));
+        }
+
+        private void SetModalState(string openModal, object modalData)
+        {
+            TempData["OpenModal"] = openModal;
+            TempData["ModalData"] = JsonSerializer.Serialize(modalData);
+            TempData["ModalErrors"] = string.Join("\n", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct());
         }
     }
 }

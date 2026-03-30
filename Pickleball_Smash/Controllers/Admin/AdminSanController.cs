@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
+using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
@@ -18,18 +19,18 @@ namespace Pickleball_Smash.Controllers
         public async Task<IActionResult> Index()
         {
             var items = await _context.SanPickleball.ToListAsync();
-            return View("~/Views/Admin/San/SanIndex.cshtml", items);
+            foreach (var item in items)
+            {
+                item.TrangThai = NormalizeTrangThai(item.TrangThai);
+            }
+            return View("~/Views/Admin/San/Index.cshtml", items);
         }
 
         // GET: San - Create
         public IActionResult Create()
         {
-            var model = new SanPickleball
-            {
-                TrangThai = "Mở"
-            };
-
-            return View("~/Views/Admin/San/SanCreate.cshtml", model);
+            TempData["Error"] = "Vui lòng thao tác tạo sân bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminSan");
         }
 
         // POST: San - Create
@@ -37,10 +38,7 @@ namespace Pickleball_Smash.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("TenSan,LoaiSan,MoTa,GiaCoBan,TrangThai")] SanPickleball san)
         {
-            if (string.IsNullOrWhiteSpace(san.TrangThai))
-            {
-                san.TrangThai = "Mở";
-            }
+            san.TrangThai = NormalizeTrangThai(san.TrangThai);
 
             // duplicate name
             if (!string.IsNullOrWhiteSpace(san.TenSan))
@@ -62,16 +60,16 @@ namespace Pickleball_Smash.Controllers
                 TempData["Success"] = "Thêm sân thành công!";
                 return RedirectToAction(nameof(Index), "AdminSan");
             }
-            return View("~/Views/Admin/San/SanCreate.cshtml", san);
+
+            SetModalState("create-san", san);
+            return RedirectToAction(nameof(Index), "AdminSan");
         }
 
         // GET: San - Edit
-        public async Task<IActionResult> Edit(int? id)
+        public IActionResult Edit(int? id)
         {
-            if (id == null) return NotFound();
-            var san = await _context.SanPickleball.FindAsync(id);
-            if (san == null) return NotFound();
-            return View("~/Views/Admin/San/SanEdit.cshtml", san);
+            TempData["Error"] = "Vui lòng thao tác chỉnh sửa bằng popup tại trang danh sách.";
+            return RedirectToAction(nameof(Index), "AdminSan");
         }
 
         // POST: San - Edit
@@ -80,6 +78,7 @@ namespace Pickleball_Smash.Controllers
         public async Task<IActionResult> Edit(int id, [Bind("SanID,TenSan,LoaiSan,MoTa,GiaCoBan,TrangThai")] SanPickleball san)
         {
             if (id != san.SanID) return NotFound();
+            san.TrangThai = NormalizeTrangThai(san.TrangThai);
             if (!string.IsNullOrWhiteSpace(san.TenSan))
             {
                 var tenSan = san.TenSan.Trim().ToLower();
@@ -109,16 +108,16 @@ namespace Pickleball_Smash.Controllers
                 }
                 return RedirectToAction(nameof(Index), "AdminSan");
             }
-            return View("~/Views/Admin/San/SanEdit.cshtml", san);
+
+            SetModalState("edit-san", san);
+            return RedirectToAction(nameof(Index), "AdminSan");
         }
 
         // GET: San - Delete
-        public async Task<IActionResult> Delete(int? id)
+        public IActionResult Delete(int? id)
         {
-            if(id==null) return NotFound();
-            var san = await _context.SanPickleball.FirstOrDefaultAsync(m=>m.SanID==id);
-            if(san==null) return NotFound();
-            return View("~/Views/Admin/San/SanDelete.cshtml", san);
+            TempData["Error"] = "Chức năng xóa trực tiếp bằng popup, không dùng trang Delete riêng.";
+            return RedirectToAction(nameof(Index), "AdminSan");
         }
 
         // POST: San - Delete
@@ -134,6 +133,41 @@ namespace Pickleball_Smash.Controllers
                 TempData["Success"] = "Xóa sân thành công!";
             }
             return RedirectToAction(nameof(Index), "AdminSan");
+        }
+
+        private static string NormalizeTrangThai(string? trangThai)
+        {
+            if (string.IsNullOrWhiteSpace(trangThai))
+            {
+                return "Trống";
+            }
+
+            if (trangThai.Equals("Mở", StringComparison.OrdinalIgnoreCase)
+                || trangThai.Equals("Trong", StringComparison.OrdinalIgnoreCase)
+                || trangThai.Equals("Trống", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Trống";
+            }
+
+            if (trangThai.Equals("Đóng", StringComparison.OrdinalIgnoreCase)
+                || trangThai.Equals("Ban", StringComparison.OrdinalIgnoreCase)
+                || trangThai.Equals("Bận", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Bận";
+            }
+
+            return "Trống";
+        }
+
+        private void SetModalState(string openModal, object modalData)
+        {
+            TempData["OpenModal"] = openModal;
+            TempData["ModalData"] = JsonSerializer.Serialize(modalData);
+            TempData["ModalErrors"] = string.Join("\n", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct());
         }
     }
 }

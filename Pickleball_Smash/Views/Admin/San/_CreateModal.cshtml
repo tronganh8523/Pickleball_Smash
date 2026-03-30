@@ -1,0 +1,51 @@
+<div class="modal fade" id="createSanModal" tabindex="-1" aria-labelledby="createSanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createSanModalLabel">Thêm Sân Pickleball</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-controller="AdminSan" asp-action="Create" method="post" data-swal-skip="true">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tên Sân</label>
+                            <input name="TenSan" class="form-control" required />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Loại Sân</label>
+                            <select name="LoaiSan" class="form-select">
+                                <option value="">-- chọn --</option>
+                                <option value="Trong nhà">Trong nhà</option>
+                                <option value="Ngoài trời">Ngoài trời</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Giá Cơ Bản</label>
+                            <input name="GiaCoBan" class="form-control" type="number" step="0.01" min="0" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Trạng Thái</label>
+                            <select name="TrangThai" class="form-select">
+                                <option value="Trống">Trống</option>
+                                <option value="Bận">Bận</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Mô Tả</label>
+                            <textarea name="MoTa" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

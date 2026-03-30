@@ -1,0 +1,56 @@
+@model Pickleball_Smash.Models.NguoiDung?
+
+@{
+    ViewData["Title"] = "Thông tin quản lý";
+    Layout = "~/Views/Shared/_ManagerLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/manager-dashboard.css" asp-append-version="true" />
+}
+
+<div class="manager-page-head">
+    <h1>Thông tin quản lý</h1>
+    <p>Hồ sơ tài khoản manager đang hoạt động trong hệ thống.</p>
+</div>
+
+<div class="profile-card">
+    @if (Model != null)
+    {
+        <div class="profile-avatar">
+            <img src="https://ui-avatars.com/api/?name=@(Model.HoTen ?? Model.TenDangNhap)&background=2f7c14&color=fff&size=160" alt="Profile" />
+        </div>
+        <div class="profile-info">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label>Họ tên</label>
+                    <input class="form-control" value="@(Model.HoTen ?? "-")" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label>Tên đăng nhập</label>
+                    <input class="form-control" value="@Model.TenDangNhap" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label>Email</label>
+                    <input class="form-control" value="@(Model.Email ?? "-")" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label>Số điện thoại</label>
+                    <input class="form-control" value="@(Model.SDT ?? "-")" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label>Vai trò</label>
+                    <input class="form-control" value="@(Model.VaiTro ?? "-")" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label>Ngày tạo</label>
+                    <input class="form-control" value="@(Model.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")" readonly />
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">Chưa có tài khoản Manager trong hệ thống.</div>
+    }
+</div>

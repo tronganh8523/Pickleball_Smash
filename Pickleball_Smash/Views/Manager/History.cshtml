@@ -1,0 +1,39 @@
+@model IEnumerable<Pickleball_Smash.Models.DonDatSan>
+
+@{
+    ViewData["Title"] = "Lịch sử xử lý";
+    Layout = "~/Views/Shared/_ManagerLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/pages/manager-dashboard.css" asp-append-version="true" />
+}
+
+<div class="manager-page-head">
+    <h1>Lịch sử đơn đã xử lý</h1>
+    <p>Các đơn đã hoàn thành hoặc hủy được lưu ở đây để đối soát.</p>
+</div>
+
+<div class="history-grid">
+    @if (Model.Any())
+    {
+        @foreach (var item in Model)
+        {
+            <article class="history-card">
+                <div class="history-top">
+                    <h5>Đơn #@item.DonDatSanID</h5>
+                    <span>@(item.TrangThaiDon ?? "-")</span>
+                </div>
+                <p><strong>Khách:</strong> @(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</p>
+                <p><strong>Sân:</strong> @(item.SanPickleball?.TenSan ?? "N/A")</p>
+                <p><strong>Ngày chơi:</strong> @(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</p>
+                <p><strong>Tổng tiền:</strong> @((item.TongTien ?? 0).ToString("N0")) đ</p>
+                <small>Cập nhật: @(item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")</small>
+            </article>
+        }
+    }
+    else
+    {
+        <div class="empty-state">Chưa có lịch sử đơn hoàn thành hoặc đã hủy.</div>
+    }
+</div>

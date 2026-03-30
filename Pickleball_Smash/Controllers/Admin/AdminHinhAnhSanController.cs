@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
+using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
@@ -47,26 +48,15 @@ namespace Pickleball_Smash.Controllers
         }
 
         // GET: AdminHinhAnhSan/Create?sanId=1
-        public async Task<IActionResult> Create(int? sanId)
+        public IActionResult Create(int? sanId)
         {
-            if (!sanId.HasValue)
+            TempData["Error"] = "Vui lòng thao tác tạo ảnh bằng popup tại trang danh sách ảnh.";
+            if (sanId.HasValue)
             {
-                TempData["Error"] = "Thiếu thông tin sân.";
-                return RedirectToAction("Index", "AdminSan");
+                return RedirectToAction(nameof(Index), new { sanId = sanId.Value });
             }
 
-            var san = await _context.SanPickleball
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.SanID == sanId.Value);
-
-            if (san == null)
-            {
-                return NotFound();
-            }
-
-            ViewBag.SanId = san.SanID;
-            ViewBag.TenSan = san.TenSan;
-            return View("~/Views/Admin/HinhAnhSan/Create.cshtml", new HinhAnhSan { SanID = san.SanID });
+            return RedirectToAction("Index", "AdminSan");
         }
 
         // POST: AdminHinhAnhSan/Create
@@ -120,40 +110,28 @@ namespace Pickleball_Smash.Controllers
                 return RedirectToAction(nameof(Index), new { sanId = model.SanID });
             }
 
-            ViewBag.SanId = san.SanID;
-            ViewBag.TenSan = san.TenSan;
-            return View("~/Views/Admin/HinhAnhSan/Create.cshtml", model);
+            SetModalState("create-hinhanh", model);
+            return RedirectToAction(nameof(Index), new { sanId = model.SanID });
         }
 
         // GET: AdminHinhAnhSan/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (!id.HasValue)
+            TempData["Error"] = "Vui lòng thao tác chỉnh sửa ảnh bằng popup tại trang danh sách ảnh.";
+
+            if (id.HasValue)
             {
-                return NotFound();
+                var image = await _context.HinhAnhSan
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.HinhAnhID == id.Value);
+
+                if (image?.SanID.HasValue == true)
+                {
+                    return RedirectToAction(nameof(Index), new { sanId = image.SanID.Value });
+                }
             }
 
-            var image = await _context.HinhAnhSan
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.HinhAnhID == id.Value);
-
-            if (image == null || !image.SanID.HasValue)
-            {
-                return NotFound();
-            }
-
-            var san = await _context.SanPickleball
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.SanID == image.SanID.Value);
-
-            if (san == null)
-            {
-                return NotFound();
-            }
-
-            ViewBag.SanId = san.SanID;
-            ViewBag.TenSan = san.TenSan;
-            return View("~/Views/Admin/HinhAnhSan/Edit.cshtml", image);
+            return RedirectToAction("Index", "AdminSan");
         }
 
         // POST: AdminHinhAnhSan/Edit/5
@@ -235,29 +213,28 @@ namespace Pickleball_Smash.Controllers
                 }
             }
 
-            ViewBag.SanId = san.SanID;
-            ViewBag.TenSan = san.TenSan;
-            return View("~/Views/Admin/HinhAnhSan/Edit.cshtml", model);
+            SetModalState("edit-hinhanh", model);
+            return RedirectToAction(nameof(Index), new { sanId = model.SanID });
         }
 
         // GET: AdminHinhAnhSan/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (!id.HasValue)
+            TempData["Error"] = "Chức năng xóa trực tiếp bằng popup, không dùng trang Delete riêng.";
+
+            if (id.HasValue)
             {
-                return NotFound();
+                var image = await _context.HinhAnhSan
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.HinhAnhID == id.Value);
+
+                if (image?.SanID.HasValue == true)
+                {
+                    return RedirectToAction(nameof(Index), new { sanId = image.SanID.Value });
+                }
             }
 
-            var image = await _context.HinhAnhSan
-                .Include(x => x.SanPickleball)
-                .FirstOrDefaultAsync(x => x.HinhAnhID == id.Value);
-
-            if (image == null)
-            {
-                return NotFound();
-            }
-
-            return View("~/Views/Admin/HinhAnhSan/Delete.cshtml", image);
+            return RedirectToAction("Index", "AdminSan");
         }
 
         // POST: AdminHinhAnhSan/Delete/5
@@ -320,6 +297,17 @@ namespace Pickleball_Smash.Controllers
             {
                 System.IO.File.Delete(fullPath);
             }
+        }
+
+        private void SetModalState(string openModal, object modalData)
+        {
+            TempData["OpenModal"] = openModal;
+            TempData["ModalData"] = JsonSerializer.Serialize(modalData);
+            TempData["ModalErrors"] = string.Join("\n", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct());
         }
     }
 }

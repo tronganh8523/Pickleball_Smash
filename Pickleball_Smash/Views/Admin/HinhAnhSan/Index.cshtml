@@ -3,6 +3,10 @@
 @{
     ViewData["Title"] = "Quản Lý Ảnh Sân";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    var openModal = TempData["OpenModal"] as string ?? string.Empty;
+    var modalData = TempData["ModalData"] as string ?? string.Empty;
+    var modalErrors = TempData["ModalErrors"] as string ?? string.Empty;
 }
 
 <div class="container-fluid py-4">
@@ -11,9 +15,9 @@
             <h1 class="h3 mb-0 text-dark">Quản Lý Ảnh - @ViewBag.TenSan</h1>
         </div>
         <div class="col-md-4 text-right">
-            <a asp-controller="AdminHinhAnhSan" asp-action="Create" asp-route-sanId="@ViewBag.SanId" class="btn btn-primary">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createHinhAnhModal">
                 <i class="fas fa-plus"></i> Thêm Ảnh
-            </a>
+            </button>
             <a asp-controller="AdminSan" asp-action="Index" class="btn btn-secondary">Quay Lại</a>
         </div>
     </div>
@@ -55,7 +59,13 @@
                                         <a href="@item.DuongDanURL" target="_blank" rel="noopener noreferrer">@item.DuongDanURL</a>
                                     </td>
                                     <td>
-                                        <a asp-controller="AdminHinhAnhSan" asp-action="Edit" asp-route-id="@item.HinhAnhID" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                                        <button type="button"
+                                                class="btn btn-sm btn-warning js-open-edit-hinhanh"
+                                                data-hinh-anh-id="@item.HinhAnhID"
+                                                data-san-id="@item.SanID"
+                                                data-duong-dan-url="@item.DuongDanURL">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                         <a asp-controller="AdminHinhAnhSan" asp-action="Delete" asp-route-id="@item.HinhAnhID" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
                                     </td>
                                 </tr>
@@ -67,3 +77,90 @@
         </div>
     </div>
 </div>
+
+@await Html.PartialAsync("~/Views/Admin/HinhAnhSan/_CreateModal.cshtml")
+@await Html.PartialAsync("~/Views/Admin/HinhAnhSan/_EditModal.cshtml")
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const openModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(openModal));
+            const modalDataJson = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalData));
+            const modalErrors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalErrors));
+
+            let restoredData = null;
+            if (modalDataJson) {
+                try {
+                    restoredData = JSON.parse(modalDataJson);
+                } catch (_) {
+                    restoredData = null;
+                }
+            }
+
+            const createModalEl = document.getElementById("createHinhAnhModal");
+            const editModalEl = document.getElementById("editHinhAnhModal");
+            const createModal = createModalEl ? new bootstrap.Modal(createModalEl) : null;
+            const editModal = editModalEl ? new bootstrap.Modal(editModalEl) : null;
+
+            const editIdParam = document.getElementById("editHinhAnhIdParam");
+            const editHinhAnhID = document.getElementById("editHinhAnhID");
+            const editSanID = document.getElementById("editHinhAnhSanID");
+            const editDuongDanURL = document.getElementById("editDuongDanURL");
+            const editPreviewWrap = document.getElementById("editPreviewWrap");
+            const editPreviewImg = document.getElementById("editPreviewImg");
+
+            const setPreview = function (url) {
+                const hasUrl = !!url;
+                if (editPreviewWrap) {
+                    editPreviewWrap.style.display = hasUrl ? "block" : "none";
+                }
+                if (editPreviewImg) {
+                    editPreviewImg.src = hasUrl ? url : "";
+                }
+            };
+
+            document.querySelectorAll(".js-open-edit-hinhanh").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    const id = this.dataset.hinhAnhId || "";
+                    const sanId = this.dataset.sanId || "";
+                    const url = this.dataset.duongDanUrl || "";
+
+                    editIdParam.value = id;
+                    editHinhAnhID.value = id;
+                    editSanID.value = sanId;
+                    editDuongDanURL.value = url;
+                    setPreview(url);
+                    editModal.show();
+                });
+            });
+
+            if (openModal === "create-hinhanh" && createModal && restoredData) {
+                const form = createModalEl.querySelector("form");
+                if (form) {
+                    form.querySelector("[name='SanID']").value = restoredData.SanID || "";
+                    form.querySelector("[name='DuongDanURL']").value = restoredData.DuongDanURL || "";
+                }
+                createModal.show();
+            }
+
+            if (openModal === "edit-hinhanh" && editModal && restoredData) {
+                const id = restoredData.HinhAnhID || "";
+                editIdParam.value = id;
+                editHinhAnhID.value = id;
+                editSanID.value = restoredData.SanID || "";
+                editDuongDanURL.value = restoredData.DuongDanURL || "";
+                setPreview(restoredData.DuongDanURL || "");
+                editModal.show();
+            }
+
+            if (modalErrors && window.Swal) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Dữ liệu chưa hợp lệ",
+                    html: modalErrors.replace(/\n/g, "<br>"),
+                    confirmButtonText: "Đã hiểu"
+                });
+            }
+        });
+    </script>
+}
