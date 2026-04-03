@@ -5,6 +5,7 @@ namespace Pickleball_Smash.Models.ViewModels
     public class ManagerDashboardViewModel
     {
         public int TongSan { get; set; }
+        public int TongSanConTrong { get; set; }
         public int TongDonHomNay { get; set; }
         public int TongDonChoXacNhan { get; set; }
         public int TongSanDangBan { get; set; }
@@ -17,6 +18,7 @@ namespace Pickleball_Smash.Models.ViewModels
     {
         public int SanID { get; set; }
         public int? BookingDangHoatDongID { get; set; }
+        public bool CanBook { get; set; } = true;
         public string TenSan { get; set; } = string.Empty;
         public string LoaiSan { get; set; } = "Chưa cập nhật";
         public decimal GiaCoBan { get; set; }

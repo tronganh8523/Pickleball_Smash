@@ -21,7 +21,7 @@ public class HomeController : Controller
     {
         var sanNoiBat = await _context.SanPickleball
             .OrderByDescending(s => s.SanID)
-            .Take(3)
+            .Take(8)
             .ToListAsync();
 
         return View(sanNoiBat);

@@ -1,8 +1,17 @@
 @model IEnumerable<Pickleball_Smash.Models.DonDatSan>
+@using Microsoft.AspNetCore.Mvc.Rendering
 
 @{
     ViewData["Title"] = "Lịch sử xử lý";
     Layout = "~/Views/Shared/_ManagerLayout.cshtml";
+
+    var sanOptions = ViewBag.SanOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var khungGioOptions = ViewBag.KhungGioOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var trangThaiOptions = ViewBag.TrangThaiOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var selectedSanId = ViewBag.SelectedSanId?.ToString() ?? string.Empty;
+    var selectedKhungGio = ViewBag.SelectedKhungGio as string ?? string.Empty;
+    var selectedNgayTao = ViewBag.SelectedNgayTao as string ?? string.Empty;
+    var selectedTrangThai = ViewBag.SelectedTrangThai as string ?? string.Empty;
 }
 
 @section Styles {
@@ -14,26 +23,229 @@
     <p>Các đơn đã hoàn thành hoặc hủy được lưu ở đây để đối soát.</p>
 </div>
 
-<div class="history-grid">
-    @if (Model.Any())
-    {
-        @foreach (var item in Model)
-        {
-            <article class="history-card">
-                <div class="history-top">
-                    <h5>Đơn #@item.DonDatSanID</h5>
-                    <span>@(item.TrangThaiDon ?? "-")</span>
-                </div>
-                <p><strong>Khách:</strong> @(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</p>
-                <p><strong>Sân:</strong> @(item.SanPickleball?.TenSan ?? "N/A")</p>
-                <p><strong>Ngày chơi:</strong> @(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</p>
-                <p><strong>Tổng tiền:</strong> @((item.TongTien ?? 0).ToString("N0")) đ</p>
-                <small>Cập nhật: @(item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")</small>
-            </article>
-        }
-    }
-    else
-    {
-        <div class="empty-state">Chưa có lịch sử đơn hoàn thành hoặc đã hủy.</div>
-    }
+<div class="table-card mb-3">
+    <form method="get" asp-controller="ManagerHistory" asp-action="History" class="court-filter-form bookings-filter-form">
+        <div class="filter-group">
+            <label for="sanId">Sân</label>
+            <select id="sanId" name="sanId" class="form-select">
+                <option value="">Tất cả sân</option>
+                @foreach (var san in sanOptions)
+                {
+                    if (selectedSanId == san.Value)
+                    {
+                        <option value="@san.Value" selected>@san.Text</option>
+                    }
+                    else
+                    {
+                        <option value="@san.Value">@san.Text</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="khungGio">Khung giờ</label>
+            <select id="khungGio" name="khungGio" class="form-select">
+                <option value="">Tất cả khung giờ</option>
+                @foreach (var khungGio in khungGioOptions)
+                {
+                    if (string.Equals(selectedKhungGio, khungGio.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <option value="@khungGio.Value" selected>@khungGio.Text</option>
+                    }
+                    else
+                    {
+                        <option value="@khungGio.Value">@khungGio.Text</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="ngayTao">Ngày tạo</label>
+            <input id="ngayTao" name="ngayTao" type="date" class="form-control" value="@selectedNgayTao" />
+        </div>
+
+        <div class="filter-group">
+            <label for="trangThai">Trạng thái</label>
+            <select id="trangThai" name="trangThai" class="form-select">
+                <option value="">Tất cả trạng thái</option>
+                @foreach (var status in trangThaiOptions)
+                {
+                    if (string.Equals(selectedTrangThai, status.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <option value="@status.Value" selected>@status.Text</option>
+                    }
+                    else
+                    {
+                        <option value="@status.Value">@status.Text</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-actions align-self-end">
+            <button type="submit" class="btn btn-primary">Lọc</button>
+            <a asp-controller="ManagerHistory" asp-action="History" class="btn btn-outline-secondary">Bỏ lọc</a>
+        </div>
+    </form>
 </div>
+
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Mã đơn</th>
+                    <th>Khách hàng</th>
+                    <th>Sân</th>
+                    <th>Ngày chơi</th>
+                    <th>Tổng tiền</th>
+                    <th>Trạng thái</th>
+                    <th>Cập nhật</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Any())
+                {
+                    @foreach (var item in Model)
+                    {
+                        var status = item.TrangThaiDon?.Trim() ?? "-";
+                        var statusClass = status.Equals("Hoàn thành", StringComparison.OrdinalIgnoreCase) ? "bg-success"
+                            : status.Equals("Đã hủy", StringComparison.OrdinalIgnoreCase) ? "bg-danger"
+                            : status.Equals("Thất bại", StringComparison.OrdinalIgnoreCase) ? "bg-dark"
+                            : "bg-light text-dark";
+
+                        <tr>
+                            <td>#@item.DonDatSanID</td>
+                            <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</td>
+                            <td>@(item.SanPickleball?.TenSan ?? "N/A")</td>
+                            <td>@(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td>@((item.TongTien ?? 0).ToString("N0")) đ</td>
+                            <td>
+                                <span class="badge @statusClass">@status</span>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-2">
+                                    <span>@(item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")</span>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary js-open-history-detail"
+                                            data-don-id="@item.DonDatSanID">
+                                        Chi tiết
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="7" class="text-center">Chưa có lịch sử đơn hoàn thành hoặc đã hủy.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@await Html.PartialAsync("~/Views/Manager/_HistoryDetailModal.cshtml")
+
+@section Scripts {
+    <script>
+        (function () {
+            const detailUrl = '@Url.Action("HistoryDetail", "ManagerHistory")';
+            const overlay = document.getElementById("historyDetailOverlay");
+            const closeButtons = document.querySelectorAll(".js-history-detail-close");
+            const detailButtons = document.querySelectorAll(".js-open-history-detail");
+
+            const fields = {
+                id: document.getElementById("historyDetailId"),
+                customer: document.getElementById("historyDetailCustomer"),
+                phone: document.getElementById("historyDetailPhone"),
+                court: document.getElementById("historyDetailCourt"),
+                playDate: document.getElementById("historyDetailPlayDate"),
+                time: document.getElementById("historyDetailTime"),
+                total: document.getElementById("historyDetailTotal"),
+                discount: document.getElementById("historyDetailDiscount"),
+                status: document.getElementById("historyDetailStatus"),
+                created: document.getElementById("historyDetailCreated"),
+                voucher: document.getElementById("historyDetailVoucher"),
+                voucherDesc: document.getElementById("historyDetailVoucherDesc"),
+                payments: document.getElementById("historyDetailPayments")
+            };
+
+            const openOverlay = () => {
+                if (!overlay) return;
+                overlay.hidden = false;
+                overlay.style.display = "grid";
+                document.body.classList.add("booking-open");
+            };
+
+            const closeOverlay = () => {
+                if (!overlay) return;
+                overlay.hidden = true;
+                overlay.style.display = "none";
+                document.body.classList.remove("booking-open");
+            };
+
+            const fillDetail = (data) => {
+                fields.id.textContent = data?.donDatSanID ? `#${data.donDatSanID}` : "-";
+                fields.customer.textContent = data?.khachHang || "-";
+                fields.phone.textContent = data?.soDienThoai || "-";
+                fields.court.textContent = data?.san || "-";
+                fields.playDate.textContent = data?.ngayChoi || "-";
+                fields.time.textContent = data?.khungGio || "-";
+                fields.total.textContent = data?.tongTien ? `${data.tongTien} đ` : "0 đ";
+                fields.discount.textContent = data?.soTienGiam ? `${data.soTienGiam} đ` : "0 đ";
+                fields.status.textContent = data?.trangThai || "-";
+                fields.created.textContent = data?.ngayTao || "-";
+                fields.voucher.textContent = data?.voucher || "-";
+                fields.voucherDesc.textContent = data?.voucherMoTa || "-";
+
+                const payments = Array.isArray(data?.payments) ? data.payments : [];
+                fields.payments.innerHTML = payments.length
+                    ? payments.map(item => `
+                        <div class="payment-row">
+                            <span>${item.phuongThuc || "-"}</span>
+                            <strong>${item.soTien ? `${item.soTien} đ` : "0 đ"}</strong>
+                            <small>${item.trangThai || "-"} • ${item.ngayThanhToan || "-"}</small>
+                        </div>
+                    `).join("")
+                    : '<div class="text-muted">Chưa có thanh toán nào.</div>';
+            };
+
+            detailButtons.forEach(button => {
+                button.addEventListener("click", async function () {
+                    const id = Number(this.dataset.donId || 0);
+                    if (!id) return;
+
+                    try {
+                        const response = await fetch(`${detailUrl}?id=${id}`, {
+                            headers: { "Accept": "application/json" }
+                        });
+
+                        const result = await response.json();
+                        if (!response.ok || !result?.success) {
+                            alert(result?.message || "Không thể tải chi tiết đơn hàng.");
+                            return;
+                        }
+
+                        fillDetail(result.data);
+                        openOverlay();
+                    } catch (error) {
+                        alert("Lỗi kết nối máy chủ. Vui lòng thử lại.");
+                    }
+                });
+            });
+
+            closeButtons.forEach(button => button.addEventListener("click", closeOverlay));
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape" && overlay && !overlay.hidden) {
+                    closeOverlay();
+                }
+            });
+        })();
+    </script>
+}

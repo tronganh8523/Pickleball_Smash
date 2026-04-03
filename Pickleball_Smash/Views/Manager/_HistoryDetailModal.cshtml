@@ -1,0 +1,28 @@
+<div id="historyDetailOverlay" class="booking-overlay" hidden>
+    <div class="booking-overlay-backdrop js-history-detail-close"></div>
+    <div class="booking-modal history-detail-modal" role="dialog" aria-modal="true" aria-labelledby="historyDetailTitle">
+        <button type="button" class="booking-close js-history-detail-close" aria-label="Đóng">x</button>
+
+        <h3 id="historyDetailTitle">Chi tiết đơn hàng</h3>
+
+        <div class="history-detail-grid">
+            <div class="history-detail-item"><span>Mã đơn</span><strong id="historyDetailId">-</strong></div>
+            <div class="history-detail-item"><span>Khách hàng</span><strong id="historyDetailCustomer">-</strong></div>
+            <div class="history-detail-item"><span>Số điện thoại</span><strong id="historyDetailPhone">-</strong></div>
+            <div class="history-detail-item"><span>Sân</span><strong id="historyDetailCourt">-</strong></div>
+            <div class="history-detail-item"><span>Ngày chơi</span><strong id="historyDetailPlayDate">-</strong></div>
+            <div class="history-detail-item"><span>Khung giờ</span><strong id="historyDetailTime">-</strong></div>
+            <div class="history-detail-item"><span>Tổng tiền</span><strong id="historyDetailTotal">-</strong></div>
+            <div class="history-detail-item"><span>Giảm giá</span><strong id="historyDetailDiscount">-</strong></div>
+            <div class="history-detail-item"><span>Trạng thái</span><strong id="historyDetailStatus">-</strong></div>
+            <div class="history-detail-item"><span>Ngày tạo</span><strong id="historyDetailCreated">-</strong></div>
+            <div class="history-detail-item"><span>Voucher</span><strong id="historyDetailVoucher">-</strong></div>
+            <div class="history-detail-item history-detail-full"><span>Mô tả voucher</span><strong id="historyDetailVoucherDesc">-</strong></div>
+        </div>
+
+        <div class="history-payment-box">
+            <h5>Thanh toán</h5>
+            <div id="historyDetailPayments" class="history-payment-list"></div>
+        </div>
+    </div>
+</div>

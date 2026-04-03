@@ -14,6 +14,10 @@
         <p>Tổng số sân</p>
         <h3>@Model.TongSan</h3>
     </article>
+    <article class="summary-card blue">
+        <p>Sân còn trống</p>
+        <h3>@Model.TongSanConTrong</h3>
+    </article>
     <article class="summary-card orange">
         <p>Đơn chờ xác nhận</p>
         <h3>@Model.TongDonChoXacNhan</h3>
@@ -30,14 +34,20 @@
     @{
         var loaiSanOptions = ViewBag.LoaiSanOptions as List<string> ?? new List<string>();
         var trangThaiOptions = ViewBag.TrangThaiOptions as List<string> ?? new List<string>();
+        var selectedTenSan = ViewBag.SelectedTenSan as string;
         var selectedLoaiSan = ViewBag.SelectedLoaiSan as string;
         var selectedTrangThai = ViewBag.SelectedTrangThai as string;
     }
 
-    <form method="get" asp-controller="Manager" asp-action="Dashboard" class="court-filter-form">
+    <form id="courtFilterForm" method="get" asp-controller="Manager" asp-action="Dashboard" class="court-filter-form">
+        <div class="filter-group">
+            <label for="tenSan">Tên sân</label>
+            <input id="tenSan" name="tenSan" type="text" class="form-control" value="@selectedTenSan" placeholder="Nhập tên sân" />
+        </div>
+
         <div class="filter-group">
             <label for="loaiSan">Loại sân</label>
-            <select id="loaiSan" name="loaiSan" class="form-select" onchange="this.form.submit()">
+            <select id="loaiSan" name="loaiSan" class="form-select">
                 <option value="">Tất cả loại sân</option>
                 @foreach (var loai in loaiSanOptions)
                 {
@@ -48,7 +58,7 @@
 
         <div class="filter-group">
             <label for="trangThai">Trạng thái</label>
-            <select id="trangThai" name="trangThai" class="form-select" onchange="this.form.submit()">
+            <select id="trangThai" name="trangThai" class="form-select">
                 <option value="">Tất cả trạng thái</option>
                 @foreach (var tt in trangThaiOptions)
                 {
@@ -58,46 +68,12 @@
         </div>
 
         <div class="filter-actions">
-            <a asp-controller="Manager" asp-action="Dashboard" class="btn btn-outline-secondary">Bỏ lọc</a>
+            <button type="button" id="clearFilterBtn" class="btn btn-outline-secondary">Bỏ lọc</button>
         </div>
     </form>
 
-    <div class="court-grid">
-        @if (Model.DanhSachSan.Any())
-        {
-            @foreach (var san in Model.DanhSachSan)
-            {
-                <article class="court-card">
-                    <img src="@san.AnhDaiDienUrl" alt="@san.TenSan" />
-                    <div class="court-body">
-                        <div class="court-title">
-                            <h4>@san.TenSan</h4>
-                            <span class="status-pill @san.BadgeClass">@san.TinhTrang</span>
-                        </div>
-                        <p class="court-type">@san.LoaiSan</p>
-                        <div class="court-price">
-                            <span>Bảng giá</span>
-                            <strong>@san.GiaCoBan.ToString("N0") đ/giờ</strong>
-                        </div>
-                        <p class="court-note">@san.MoTaNgan</p>
-                        <button
-                            type="button"
-                            class="court-action @san.ActionClass @(san.ActionClass == "btn-book" ? "js-open-booking" : "js-checkout")"
-                            data-san-id="@san.SanID"
-                            data-booking-id="@san.BookingDangHoatDongID"
-                            data-ten-san="@san.TenSan"
-                            data-loai-san="@san.LoaiSan"
-                            data-gia="@san.GiaCoBan">
-                            @san.ActionText
-                        </button>
-                    </div>
-                </article>
-            }
-        }
-        else
-        {
-            <div class="empty-state">Hiện chưa có dữ liệu sân.</div>
-        }
+    <div id="courtGridContainer">
+        @await Html.PartialAsync("~/Views/Manager/_CourtGrid.cshtml", Model)
     </div>
 </section>
 
@@ -126,20 +102,15 @@
                 </div>
 
                 <div class="form-row form-row-full">
-                    <label for="bookingCourt">Chọn sân</label>
-                    <select id="bookingCourt" class="form-select">
-                        <option value="">--Chọn Sân--</option>
-                        @foreach (var san in Model.DanhSachSan)
-                        {
-                            <option value="@san.SanID" data-ten-san="@san.TenSan" data-loai-san="@san.LoaiSan" data-gia="@san.GiaCoBan">@san.TenSan</option>
-                        }
-                    </select>
+                    <label for="bookingCourtDisplay">Sân đang đặt</label>
+                    <input id="bookingCourtDisplay" type="text" class="form-control" readonly placeholder="Chưa chọn sân" />
+                    <input id="bookingCourt" type="hidden" value="" />
                 </div>
 
                 <div class="form-row">
                     <label for="bookingStart">Giờ bắt đầu</label>
                     <select id="bookingStart" class="form-select">
-                        @for (var hour = 5; hour <= 22; hour++)
+                        @for (var hour = 5; hour <= 23; hour++)
                         {
                             var label = $"{hour:00}:00";
                             <option value="@label">@label</option>
@@ -150,7 +121,7 @@
                 <div class="form-row">
                     <label for="bookingEnd">Giờ kết thúc</label>
                     <select id="bookingEnd" class="form-select">
-                        @for (var hour = 6; hour <= 23; hour++)
+                        @for (var hour = 6; hour <= 24; hour++)
                         {
                             var label = $"{hour:00}:00";
                             <option value="@label">@label</option>
@@ -181,20 +152,25 @@
     <script>
         (function () {
             const createBookingUrl = '@Url.Action("CreateBooking", "Manager")';
-            const checkoutCourtUrl = '@Url.Action("CheckoutCourt", "Manager")';
+            const lookupCustomerByPhoneUrl = '@Url.Action("LookupCustomerByPhone", "Manager")';
             const hasSwal = typeof Swal !== "undefined";
             const overlay = document.getElementById("bookingOverlay");
             const backdrop = overlay?.querySelector(".booking-overlay-backdrop");
             const closeBtn = document.getElementById("bookingCloseBtn");
-            const openButtons = document.querySelectorAll(".js-open-booking");
-            const checkoutButtons = document.querySelectorAll(".js-checkout");
             const bookingCourt = document.getElementById("bookingCourt");
+            const bookingCourtDisplay = document.getElementById("bookingCourtDisplay");
             const bookingCustomer = document.getElementById("bookingCustomer");
             const bookingPhone = document.getElementById("bookingPhone");
             const bookingDate = document.getElementById("bookingDate");
             const bookingStart = document.getElementById("bookingStart");
             const bookingEnd = document.getElementById("bookingEnd");
             const bookingSubmitBtn = document.getElementById("bookingSubmitBtn");
+            const courtFilterForm = document.getElementById("courtFilterForm");
+            const tenSanInput = document.getElementById("tenSan");
+            const loaiSanSelect = document.getElementById("loaiSan");
+            const trangThaiSelect = document.getElementById("trangThai");
+            const clearFilterBtn = document.getElementById("clearFilterBtn");
+            const courtGridContainer = document.getElementById("courtGridContainer");
 
             const sumCustomer = document.getElementById("sumCustomer");
             const sumLoaiSan = document.getElementById("sumLoaiSan");
@@ -204,6 +180,13 @@
             const sumTotal = document.getElementById("sumTotal");
 
             let selectedCourtPrice = 0;
+            let selectedCourtLoaiSan = "-";
+            let bookedRanges = [];
+            let pricingRanges = [];
+            let filterDebounceId;
+            let filterAbortController = null;
+            let phoneLookupDebounceId;
+            let phoneLookupAbortController = null;
 
             const formatVnd = (value) => `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
 
@@ -219,6 +202,13 @@
                     text: message,
                     confirmButtonText: "Đã hiểu"
                 });
+            };
+
+            const getTodayDateString = () => {
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, "0");
+                const day = String(now.getDate()).padStart(2, "0");
+                return `${now.getFullYear()}-${month}-${day}`;
             };
 
             const showSuccess = async (message) => {
@@ -266,6 +256,66 @@
                 return !!result.isConfirmed;
             };
 
+            const runFilterRefresh = () => {
+                return refreshCourts().catch(error => {
+                    if (error && error.name === "AbortError") {
+                        return;
+                    }
+
+                    return showError("Không thể tải danh sách sân. Vui lòng thử lại.");
+                });
+            };
+
+            const bindCourtActionButtons = () => {
+                document.querySelectorAll(".js-open-booking").forEach(btn => {
+                    btn.addEventListener("click", function () {
+                        openModal(this);
+                    });
+                });
+
+            };
+
+            const buildFilterUrl = () => {
+                const url = new URL(courtFilterForm.action, window.location.origin);
+                const formData = new FormData(courtFilterForm);
+
+                for (const [key, value] of formData.entries()) {
+                    const normalized = typeof value === "string" ? value.trim() : value;
+                    if (normalized) {
+                        url.searchParams.set(key, normalized);
+                    }
+                }
+
+                return url;
+            };
+
+            const refreshCourts = async () => {
+                if (!courtGridContainer || !courtFilterForm) return;
+
+                if (filterAbortController) {
+                    filterAbortController.abort();
+                }
+
+                filterAbortController = new AbortController();
+
+                const url = buildFilterUrl();
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "text/html"
+                    },
+                    signal: filterAbortController.signal
+                });
+
+                if (!response.ok) {
+                    throw new Error("Filter request failed");
+                }
+
+                const html = await response.text();
+                courtGridContainer.innerHTML = html;
+                bindCourtActionButtons();
+            };
+
             const setTodayIfEmpty = () => {
                 if (!bookingDate || bookingDate.value) return;
                 const now = new Date();
@@ -274,23 +324,259 @@
                 bookingDate.value = `${now.getFullYear()}-${month}-${day}`;
             };
 
-            const updateSummary = () => {
-                const selectedOption = bookingCourt?.selectedOptions?.[0];
-                const loaiSan = selectedOption?.dataset?.loaiSan || "-";
+            const parseHourValue = (value) => {
+                if (!value) return NaN;
+                const parts = value.split(":");
+                const hour = Number(parts[0]);
+                if (Number.isNaN(hour)) return NaN;
+                return hour === 24 ? 24 : hour;
+            };
 
+            const hasBookingOverlap = (startHour, endHour) => {
+                return bookedRanges.some(range => startHour < range.end && endHour > range.start);
+            };
+
+            const getPriceByHour = (hour) => {
+                const slot = pricingRanges.find(x => x.start <= hour && hour < x.end);
+                return slot ? slot.price : selectedCourtPrice;
+            };
+
+            const loadCourtBookings = async () => {
+                const sanId = Number(bookingCourt?.value || 0);
+                const ngayChoi = bookingDate?.value?.trim();
+
+                if (!sanId || !ngayChoi) {
+                    bookedRanges = [];
+                    pricingRanges = [];
+                    renderBookingTimeOptions();
+                    return;
+                }
+
+                try {
+                    const url = new URL('@Url.Action("GetCourtBookingsForDay", "Manager")', window.location.origin);
+                    url.searchParams.set("sanId", String(sanId));
+                    url.searchParams.set("ngayChoi", ngayChoi);
+
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            "Accept": "application/json"
+                        }
+                    });
+
+                    if (!response.ok) {
+                        bookedRanges = [];
+                        pricingRanges = [];
+                        renderBookingTimeOptions();
+                        return;
+                    }
+
+                    const result = await response.json();
+                    const bookings = result?.bookings || [];
+                    const ranges = result?.pricingRanges || [];
+
+                    bookedRanges = bookings
+                        .map(b => ({
+                            start: parseHourValue(b.gioBatDau),
+                            end: parseHourValue(b.gioKetThuc)
+                        }))
+                        .filter(x => !Number.isNaN(x.start) && !Number.isNaN(x.end) && x.end > x.start);
+
+                    pricingRanges = ranges
+                        .map(x => ({
+                            start: Number(x.startHour),
+                            end: Number(x.endHour),
+                            price: Number(x.giaTien)
+                        }))
+                        .filter(x => !Number.isNaN(x.start) && !Number.isNaN(x.end) && !Number.isNaN(x.price) && x.end > x.start)
+                        .sort((a, b) => a.start - b.start);
+
+                    renderBookingTimeOptions();
+                } catch (error) {
+                    bookedRanges = [];
+                    pricingRanges = [];
+                    renderBookingTimeOptions();
+                }
+            };
+
+            const populateBookingEndOptions = (startHour, previousEnd) => {
+                if (!bookingEnd) return;
+
+                bookingEnd.innerHTML = "";
+
+                const firstEndHour = Math.max(startHour + 1, 6);
+                for (let hour = firstEndHour; hour <= 24; hour++) {
+                    if (hasBookingOverlap(startHour, hour)) {
+                        continue;
+                    }
+
+                    const label = `${String(hour).padStart(2, "0")}:00`;
+                    const option = document.createElement("option");
+                    option.value = label;
+                    option.textContent = label;
+                    bookingEnd.appendChild(option);
+                }
+
+                if (previousEnd && bookingEnd.querySelector(`option[value="${previousEnd}"]`)) {
+                    bookingEnd.value = previousEnd;
+                } else if (bookingEnd.firstElementChild) {
+                    bookingEnd.value = bookingEnd.firstElementChild.value;
+                } else {
+                    bookingEnd.value = "";
+                }
+            };
+
+            const renderBookingTimeOptions = () => {
+                if (!bookingDate || !bookingStart || !bookingEnd) return;
+
+                const today = getTodayDateString();
+                const isToday = bookingDate.value === today;
+                const currentHour = new Date().getHours();
+                const firstAllowedStart = isToday ? currentHour + 1 : 5;
+
+                const previousStart = bookingStart.value;
+                const previousEnd = bookingEnd.value;
+
+                bookingStart.innerHTML = "";
+
+                if (isToday && firstAllowedStart > 23) {
+                    const option = document.createElement("option");
+                    option.value = "";
+                    option.textContent = "Hết khung giờ hôm nay";
+                    option.disabled = true;
+                    option.selected = true;
+                    bookingStart.appendChild(option);
+                    bookingEnd.innerHTML = "";
+                    bookingEnd.value = "";
+                    updateSummary();
+                    return;
+                }
+
+                for (let hour = firstAllowedStart; hour <= 23; hour++) {
+                    if (hasBookingOverlap(hour, hour + 1)) {
+                        continue;
+                    }
+
+                    const label = `${String(hour).padStart(2, "0")}:00`;
+                    const option = document.createElement("option");
+                    option.value = label;
+                    option.textContent = label;
+                    bookingStart.appendChild(option);
+                }
+
+                if (!bookingStart.firstElementChild) {
+                    const option = document.createElement("option");
+                    option.value = "";
+                    option.textContent = "Không còn giờ trống";
+                    option.disabled = true;
+                    option.selected = true;
+                    bookingStart.appendChild(option);
+                    bookingEnd.innerHTML = "";
+                    bookingEnd.value = "";
+                    updateSummary();
+                    return;
+                }
+
+                if (previousStart && bookingStart.querySelector(`option[value="${previousStart}"]`)) {
+                    bookingStart.value = previousStart;
+                } else if (bookingStart.firstElementChild) {
+                    bookingStart.value = bookingStart.firstElementChild.value;
+                }
+
+                const selectedStartHour = Number((bookingStart.value || "0").split(":")[0]);
+                populateBookingEndOptions(selectedStartHour, previousEnd);
+
+                if (bookingEnd.value && Number((bookingEnd.value || "0").split(":")[0]) <= selectedStartHour) {
+                    bookingEnd.value = "";
+                }
+
+                if (!bookingEnd.value && bookingEnd.firstElementChild) {
+                    bookingEnd.value = bookingEnd.firstElementChild.value;
+                }
+
+                updateSummary();
+            };
+
+            const scheduleLiveFilter = () => {
+                if (!courtFilterForm) return;
+
+                window.clearTimeout(filterDebounceId);
+                filterDebounceId = window.setTimeout(() => {
+                    runFilterRefresh();
+                }, 350);
+            };
+
+            const schedulePhoneLookup = () => {
+                window.clearTimeout(phoneLookupDebounceId);
+                phoneLookupDebounceId = window.setTimeout(() => {
+                    lookupCustomerByPhone();
+                }, 350);
+            };
+
+            const lookupCustomerByPhone = async () => {
+                if (!bookingPhone || !bookingCustomer) return;
+
+                const phone = bookingPhone.value.trim();
+                if (!phone) {
+                    return;
+                }
+
+                if (phoneLookupAbortController) {
+                    phoneLookupAbortController.abort();
+                }
+
+                phoneLookupAbortController = new AbortController();
+
+                try {
+                    const url = new URL(lookupCustomerByPhoneUrl, window.location.origin);
+                    url.searchParams.set("soDienThoai", phone);
+
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            "Accept": "application/json"
+                        },
+                        signal: phoneLookupAbortController.signal
+                    });
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const result = await response.json();
+                    if (result?.found && result?.hoTen) {
+                        bookingCustomer.value = result.hoTen;
+                        updateSummary();
+                    }
+                } catch (error) {
+                    if (error && error.name === "AbortError") {
+                        return;
+                    }
+                }
+            };
+
+            const updateSummary = () => {
                 const startVal = bookingStart?.value || "-";
                 const endVal = bookingEnd?.value || "-";
 
                 sumCustomer.textContent = bookingCustomer?.value?.trim() || "-";
-                sumLoaiSan.textContent = loaiSan;
+                sumLoaiSan.textContent = selectedCourtLoaiSan;
                 sumPhone.textContent = bookingPhone?.value?.trim() || "-";
                 sumTime.textContent = `${startVal} - ${endVal}`;
                 sumDate.textContent = bookingDate?.value || "-";
 
                 const startHour = Number((bookingStart?.value || "0").split(":")[0]);
                 const endHour = Number((bookingEnd?.value || "0").split(":")[0]);
-                const hours = Math.max(1, endHour - startHour);
-                sumTotal.textContent = formatVnd(selectedCourtPrice * hours);
+
+                if (Number.isNaN(startHour) || Number.isNaN(endHour) || endHour <= startHour) {
+                    sumTotal.textContent = formatVnd(0);
+                    return;
+                }
+
+                let total = 0;
+                for (let hour = startHour; hour < endHour; hour++) {
+                    total += getPriceByHour(hour);
+                }
+
+                sumTotal.textContent = formatVnd(total);
             };
 
             const validateForm = async () => {
@@ -309,6 +595,29 @@
                     return false;
                 }
 
+                const today = getTodayDateString();
+                if (bookingDate.value < today) {
+                    await showWarning("Không thể đặt sân cho ngày trong quá khứ.");
+                    return false;
+                }
+
+                if (bookingDate.value === today) {
+                    const currentTime = new Date();
+                    const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+                    const startHourValue = Number((bookingStart?.value || "0").split(":")[0]);
+                    const startMinutes = startHourValue * 60;
+
+                    if (startMinutes <= currentMinutes) {
+                        await showWarning("Không thể đặt sân cho khung giờ đã qua trong ngày hôm nay.");
+                        return false;
+                    }
+                }
+
+                if (!bookingStart?.value) {
+                    await showWarning("Vui lòng chọn giờ bắt đầu hợp lệ.");
+                    return false;
+                }
+
                 if ((bookingEnd?.value || "") <= (bookingStart?.value || "")) {
                     await showWarning("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
                     return false;
@@ -324,87 +633,77 @@
 
                 const sanId = button?.dataset?.sanId;
                 if (bookingCourt && sanId) {
-                    bookingCourt.value = sanId;
+                    const tenSan = button?.dataset?.tenSan || `Sân ${sanId}`;
+                    const loaiSan = button?.dataset?.loaiSan || "-";
+                    const gia = button?.dataset?.gia || "0";
+
+                    bookingCourt.value = String(sanId);
+                    if (bookingCourtDisplay) {
+                        bookingCourtDisplay.value = tenSan;
+                    }
+                    selectedCourtLoaiSan = loaiSan;
+                    selectedCourtPrice = Number(gia);
                 }
 
-                const selectedOption = bookingCourt?.selectedOptions?.[0];
-                selectedCourtPrice = Number(selectedOption?.dataset?.gia || 0);
-
                 updateSummary();
+                loadCourtBookings();
 
                 overlay.hidden = false;
+                overlay.style.display = "grid";
                 document.body.classList.add("booking-open");
             };
 
             const closeModal = () => {
                 if (!overlay) return;
                 overlay.hidden = true;
+                overlay.style.display = "none";
                 document.body.classList.remove("booking-open");
             };
 
-            openButtons.forEach(btn => {
-                btn.addEventListener("click", function () {
-                    openModal(this);
-                });
-            });
+            bindCourtActionButtons();
 
-            checkoutButtons.forEach(btn => {
-                btn.addEventListener("click", async function () {
-                    const sanId = Number(this.dataset.sanId || 0);
-                    const bookingId = Number(this.dataset.bookingId || 0);
-
-                    if (!sanId || !bookingId) {
-                        await showError("Không tìm thấy đơn đang hoạt động để check-out.");
-                        return;
-                    }
-
-                    const ok = await confirmAction("Bạn muốn check-out để giải phóng sân này?");
-                    if (!ok) {
-                        return;
-                    }
-
-                    const originalText = this.textContent;
-                    this.disabled = true;
-                    this.textContent = "Đang check-out...";
-
-                    try {
-                        const response = await fetch(checkoutCourtUrl, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({ sanID: sanId, bookingID: bookingId })
-                        });
-
-                        const result = await response.json();
-                        if (!response.ok || !result?.success) {
-                            await showError(result?.message || "Không thể check-out sân.");
-                            return;
-                        }
-
-                        await showSuccess("Check-out thành công, sân đã được giải phóng.");
-                        window.location.reload();
-                    } catch (error) {
-                        await showError("Lỗi kết nối máy chủ. Vui lòng thử lại.");
-                    } finally {
-                        this.disabled = false;
-                        this.textContent = originalText;
-                    }
-                });
-            });
+            if (bookingDate) {
+                bookingDate.min = getTodayDateString();
+            }
 
             closeBtn?.addEventListener("click", closeModal);
             backdrop?.addEventListener("click", closeModal);
 
-            bookingCourt?.addEventListener("change", function () {
-                const selectedOption = this.selectedOptions?.[0];
-                selectedCourtPrice = Number(selectedOption?.dataset?.gia || 0);
-                updateSummary();
-            });
-
             [bookingCustomer, bookingPhone, bookingDate, bookingStart, bookingEnd].forEach(input => {
                 input?.addEventListener("input", updateSummary);
                 input?.addEventListener("change", updateSummary);
+            });
+
+            bookingPhone?.addEventListener("input", schedulePhoneLookup);
+            bookingPhone?.addEventListener("blur", lookupCustomerByPhone);
+
+            bookingDate?.addEventListener("change", function () {
+                loadCourtBookings();
+            });
+
+            bookingStart?.addEventListener("change", function () {
+                const startHour = Number((this.value || "0").split(":")[0]);
+                const previousEnd = bookingEnd?.value || "";
+
+                populateBookingEndOptions(startHour, previousEnd);
+
+                updateSummary();
+            });
+
+            tenSanInput?.addEventListener("input", scheduleLiveFilter);
+            loaiSanSelect?.addEventListener("change", runFilterRefresh);
+            trangThaiSelect?.addEventListener("change", runFilterRefresh);
+
+            courtFilterForm?.addEventListener("submit", function (event) {
+                event.preventDefault();
+                runFilterRefresh();
+            });
+
+            clearFilterBtn?.addEventListener("click", function () {
+                if (tenSanInput) tenSanInput.value = "";
+                if (loaiSanSelect) loaiSanSelect.value = "";
+                if (trangThaiSelect) trangThaiSelect.value = "";
+                runFilterRefresh();
             });
 
             bookingSubmitBtn?.addEventListener("click", async function () {
@@ -440,8 +739,11 @@
                         return;
                     }
 
-                    await showSuccess(`Đặt sân thành công. Mã đơn #${result.bookingId}`);
                     closeModal();
+                    this.disabled = false;
+                    this.textContent = originalText;
+
+                    await showSuccess(`Đặt sân thành công. Mã đơn #${result.bookingId}`);
                     window.location.reload();
                 } catch (error) {
                     await showError("Lỗi kết nối máy chủ. Vui lòng thử lại.");
@@ -459,42 +761,3 @@
         })();
     </script>
 }
-
-<section class="recent-orders">
-    <h2>Đơn mới cập nhật</h2>
-
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Mã đơn</th>
-                    <th>Khách hàng</th>
-                    <th>Sân</th>
-                    <th>Ngày chơi</th>
-                    <th>Trạng thái</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.DonGanDay.Any())
-                {
-                    @foreach (var item in Model.DonGanDay)
-                    {
-                        <tr>
-                            <td>#@item.DonDatSanID</td>
-                            <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</td>
-                            <td>@(item.SanPickleball?.TenSan ?? "N/A")</td>
-                            <td>@(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</td>
-                            <td>@(item.TrangThaiDon ?? "-")</td>
-                        </tr>
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="5" class="text-center">Chưa có đơn đặt sân gần đây.</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</section>

@@ -66,12 +66,12 @@ namespace Pickleball_Smash.Controllers
 
             if (form.GioBatDau.HasValue && !IsValidHourValue(form.GioBatDau.Value, false))
             {
-                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu phải từ 06:00 đến 23:00 và cách nhau 1 giờ.");
+                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu phải từ 05:00 đến 23:00 và cách nhau 1 giờ.");
             }
 
             if (form.GioKetThuc.HasValue && !IsValidHourValue(form.GioKetThuc.Value, true))
             {
-                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải từ 07:00 đến 24:00 và cách nhau 1 giờ.");
+                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải từ 06:00 đến 24:00 và cách nhau 1 giờ.");
             }
 
             if (form.GioBatDau.HasValue && form.GioKetThuc.HasValue)
@@ -240,12 +240,12 @@ namespace Pickleball_Smash.Controllers
 
             if (bangGia.GioBatDau.HasValue && !IsValidHourValue(bangGia.GioBatDau.Value, false))
             {
-                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu phải từ 06:00 đến 23:00 và cách nhau 1 giờ.");
+                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu phải từ 05:00 đến 23:00 và cách nhau 1 giờ.");
             }
 
             if (bangGia.GioKetThuc.HasValue && !IsValidHourValue(bangGia.GioKetThuc.Value, true))
             {
-                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải từ 07:00 đến 24:00 và cách nhau 1 giờ.");
+                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải từ 06:00 đến 24:00 và cách nhau 1 giờ.");
             }
 
             if (bangGia.GioBatDau.HasValue && bangGia.GioKetThuc.HasValue)
@@ -288,8 +288,8 @@ namespace Pickleball_Smash.Controllers
 
             var hour = ToHour(value, isEnd);
             return isEnd
-                ? hour >= 7 && hour <= 24
-                : hour >= 6 && hour <= 23;
+                ? hour >= 6 && hour <= 24
+                : hour >= 5 && hour <= 23;
         }
 
         private static int ToHour(TimeOnly value, bool isEnd)
@@ -332,7 +332,7 @@ namespace Pickleball_Smash.Controllers
         private void PrepareTimeOptions(TimeOnly? selectedStart = null, TimeOnly? selectedEnd = null)
         {
             var startOptions = new List<SelectListItem>();
-            for (var h = 6; h <= 23; h++)
+            for (var h = 5; h <= 23; h++)
             {
                 var value = $"{h:00}:00";
                 startOptions.Add(new SelectListItem
@@ -344,7 +344,7 @@ namespace Pickleball_Smash.Controllers
             }
 
             var endOptions = new List<SelectListItem>();
-            for (var h = 7; h <= 24; h++)
+            for (var h = 6; h <= 24; h++)
             {
                 var value = h == 24 ? "00:00" : $"{h:00}:00";
                 var text = $"{h:00}:00";

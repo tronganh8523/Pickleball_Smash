@@ -1,0 +1,41 @@
+@model Pickleball_Smash.Models.ViewModels.ManagerDashboardViewModel
+
+<div class="court-grid">
+    @if (Model.DanhSachSan.Any())
+    {
+        @foreach (var san in Model.DanhSachSan)
+        {
+            <article class="court-card">
+                <img src="@san.AnhDaiDienUrl" alt="@san.TenSan" />
+                <div class="court-body">
+                    <div class="court-title">
+                        <h4>@san.TenSan</h4>
+                        <span class="status-pill @san.BadgeClass">@san.TinhTrang</span>
+                    </div>
+                    <p class="court-type">@san.LoaiSan</p>
+                    <div class="court-price">
+                        <span>Bảng giá</span>
+                        <strong>@san.GiaCoBan.ToString("N0") đ/giờ</strong>
+                    </div>
+                    <p class="court-note">@san.MoTaNgan</p>
+                    @if (san.CanBook)
+                    {
+                        <button
+                            type="button"
+                            class="court-action @san.ActionClass js-open-booking"
+                            data-san-id="@san.SanID"
+                            data-ten-san="@san.TenSan"
+                            data-loai-san="@san.LoaiSan"
+                            data-gia="@san.GiaCoBan">
+                            @san.ActionText
+                        </button>
+                    }
+                </div>
+            </article>
+        }
+    }
+    else
+    {
+        <div class="empty-state">Hiện chưa có dữ liệu sân.</div>
+    }
+</div>

@@ -20,13 +20,14 @@ namespace Pickleball_Smash.Controllers
             return RedirectToAction(nameof(Dashboard));
         }
 
-        public async Task<IActionResult> Dashboard(string? loaiSan, string? trangThai)
+        public async Task<IActionResult> Dashboard(string? tenSan, string? loaiSan, string? trangThai)
         {
             if (!HasManagerAccess())
             {
                 return Forbid();
             }
 
+            tenSan = string.IsNullOrWhiteSpace(tenSan) ? null : tenSan.Trim();
             loaiSan = string.IsNullOrWhiteSpace(loaiSan) ? null : loaiSan.Trim();
             trangThai = string.IsNullOrWhiteSpace(trangThai) ? null : trangThai.Trim();
 
@@ -65,6 +66,7 @@ namespace Pickleball_Smash.Controllers
             var model = new ManagerDashboardViewModel
             {
                 TongSan = tatCaSan.Count,
+                TongSanConTrong = tatCaSan.Count(s => string.Equals(s.TrangThai, "Trống", StringComparison.OrdinalIgnoreCase)),
                 TongDonHomNay = tatCaDon.Count(d => d.NgayChoi == homNay),
                 TongDonChoXacNhan = tatCaDon.Count(d => string.Equals(d.TrangThaiDon, "Chờ xác nhận", StringComparison.OrdinalIgnoreCase)),
                 TongSanDangBan = tatCaSan.Count(s => string.Equals(s.TrangThai, "Bận", StringComparison.OrdinalIgnoreCase)),
@@ -104,6 +106,13 @@ namespace Pickleball_Smash.Controllers
                 .OrderBy(x => x)
                 .ToList();
 
+            if (!string.IsNullOrWhiteSpace(tenSan))
+            {
+                model.DanhSachSan = model.DanhSachSan
+                    .Where(x => x.TenSan.Contains(tenSan, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
             if (!string.IsNullOrWhiteSpace(loaiSan))
             {
                 model.DanhSachSan = model.DanhSachSan
@@ -118,50 +127,19 @@ namespace Pickleball_Smash.Controllers
                     .ToList();
             }
 
+            ViewBag.SelectedTenSan = tenSan;
             ViewBag.LoaiSanOptions = loaiSanOptions;
             ViewBag.TrangThaiOptions = trangThaiOptions;
             ViewBag.SelectedLoaiSan = loaiSan;
             ViewBag.SelectedTrangThai = trangThai;
 
+            if (Request.Headers.TryGetValue("X-Requested-With", out var requestedWith)
+                && string.Equals(requestedWith, "XMLHttpRequest", StringComparison.OrdinalIgnoreCase))
+            {
+                return PartialView("~/Views/Manager/_CourtGrid.cshtml", model);
+            }
+
             return View("~/Views/Manager/Dashboard.cshtml", model);
-        }
-
-        public async Task<IActionResult> Bookings()
-        {
-            if (!HasManagerAccess())
-            {
-                return Forbid();
-            }
-
-            var donDat = await _context.DonDatSan
-                .AsNoTracking()
-                .Include(d => d.SanPickleball)
-                .Include(d => d.NguoiDung)
-                .OrderByDescending(d => d.NgayTao)
-                .ToListAsync();
-
-            return View("~/Views/Manager/Bookings.cshtml", donDat);
-        }
-
-        public async Task<IActionResult> History()
-        {
-            if (!HasManagerAccess())
-            {
-                return Forbid();
-            }
-
-            var lichSu = await _context.DonDatSan
-                .AsNoTracking()
-                .Include(d => d.SanPickleball)
-                .Include(d => d.NguoiDung)
-                .Where(d =>
-                    string.Equals(d.TrangThaiDon, "Hoàn thành", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(d.TrangThaiDon, "Đã hủy", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(d.TrangThaiDon, "Thất bại", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(d => d.NgayTao)
-                .ToListAsync();
-
-            return View("~/Views/Manager/History.cshtml", lichSu);
         }
 
         public async Task<IActionResult> Profile()
@@ -205,21 +183,41 @@ namespace Pickleball_Smash.Controllers
                 return BadRequest(new { success = false, message = "Ngày chơi không hợp lệ." });
             }
 
-            if (!TimeOnly.TryParse(request.GioBatDau, out var gioBatDau)
-                || !TimeOnly.TryParse(request.GioKetThuc, out var gioKetThuc))
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            if (ngayChoi < today)
+            {
+                return BadRequest(new { success = false, message = "Không thể đặt sân cho ngày trong quá khứ." });
+            }
+
+            if (!TryParseBookingTime(request.GioBatDau, out var gioBatDau, out var gioBatDauIsEndOfDay)
+                || !TryParseBookingTime(request.GioKetThuc, out var gioKetThuc, out var gioKetThucIsEndOfDay))
             {
                 return BadRequest(new { success = false, message = "Khung giờ không hợp lệ." });
             }
 
-            if (gioKetThuc <= gioBatDau)
+            if (gioBatDauIsEndOfDay || (!gioKetThucIsEndOfDay && gioKetThuc <= gioBatDau))
             {
                 return BadRequest(new { success = false, message = "Giờ kết thúc phải lớn hơn giờ bắt đầu." });
+            }
+
+            if (ngayChoi == today)
+            {
+                var currentTime = TimeOnly.FromDateTime(DateTime.Now);
+                if (!gioBatDauIsEndOfDay && gioBatDau <= currentTime)
+                {
+                    return BadRequest(new { success = false, message = "Không thể đặt sân cho khung giờ đã qua trong ngày hôm nay." });
+                }
             }
 
             var san = await _context.SanPickleball.FirstOrDefaultAsync(x => x.SanID == request.SanID);
             if (san == null)
             {
                 return BadRequest(new { success = false, message = "Sân không tồn tại." });
+            }
+
+            if (!string.Equals(san.TrangThai?.Trim(), "Trống", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { success = false, message = $"Sân hiện đang có trạng thái '{san.TrangThai}' và không thể đặt. Vui lòng chọn sân khác." });
             }
 
             var trangThaiDonDangHoatDong = new[] { "Chờ xác nhận", "Đã xác nhận", "Đang chơi", "Đã đặt" };
@@ -235,16 +233,45 @@ namespace Pickleball_Smash.Controllers
             var biTrungGio = donCungNgay.Any(x =>
                 x.ThoiGianBatDau.HasValue
                 && x.ThoiGianKetThuc.HasValue
-                && gioBatDau < x.ThoiGianKetThuc.Value
-                && gioKetThuc > x.ThoiGianBatDau.Value);
+                && GetBookingMinute(gioBatDau, gioBatDauIsEndOfDay) < GetBookingMinute(x.ThoiGianKetThuc.Value, x.ThoiGianKetThuc.Value == TimeOnly.MinValue)
+                && GetBookingMinute(gioKetThuc, gioKetThucIsEndOfDay) > GetBookingMinute(x.ThoiGianBatDau.Value, false));
 
             if (biTrungGio)
             {
                 return BadRequest(new { success = false, message = "Sân đã có lịch trong khung giờ này. Vui lòng chọn giờ khác." });
             }
 
-            var tongGio = (decimal)(gioKetThuc.ToTimeSpan() - gioBatDau.ToTimeSpan()).TotalHours;
-            var tongTien = (san.GiaCoBan ?? 0) * tongGio;
+            var bookingStartHour = GetBookingMinute(gioBatDau, gioBatDauIsEndOfDay) / 60;
+            var bookingEndHour = GetBookingMinute(gioKetThuc, gioKetThucIsEndOfDay) / 60;
+
+            var bangGiaKhungGio = await _context.BangGiaKhungGio
+                .AsNoTracking()
+                .Where(x => x.SanID == san.SanID && x.GioBatDau.HasValue && x.GioKetThuc.HasValue)
+                .Select(x => new
+                {
+                    StartHour = x.GioBatDau!.Value.Hour,
+                    EndHour = x.GioKetThuc!.Value == TimeOnly.MinValue ? 24 : x.GioKetThuc.Value.Hour,
+                    GiaTien = x.GiaTien
+                })
+                .ToListAsync();
+
+            decimal tongTien = 0;
+            var giaCoBan = san.GiaCoBan ?? 0;
+
+            for (var hour = bookingStartHour; hour < bookingEndHour; hour++)
+            {
+                var giaTheoKhung = bangGiaKhungGio
+                    .FirstOrDefault(x => x.StartHour <= hour && hour < x.EndHour && x.GiaTien.HasValue)
+                    ?.GiaTien;
+
+                var donGia = giaTheoKhung ?? giaCoBan;
+                if (donGia <= 0)
+                {
+                    return BadRequest(new { success = false, message = "Sân chưa được cấu hình giá hợp lệ cho khung giờ đã chọn." });
+                }
+
+                tongTien += donGia;
+            }
 
             var nguoiDung = await _context.NguoiDung
                 .FirstOrDefaultAsync(x => x.SDT != null && x.SDT == soDienThoai);
@@ -291,17 +318,14 @@ namespace Pickleball_Smash.Controllers
                 SanID = san.SanID,
                 NgayChoi = ngayChoi,
                 ThoiGianBatDau = gioBatDau,
-                ThoiGianKetThuc = gioKetThuc,
+                ThoiGianKetThuc = gioKetThucIsEndOfDay ? TimeOnly.MinValue : gioKetThuc,
                 TongTien = tongTien,
                 SoTienGiam = 0,
                 TrangThaiDon = "Chờ xác nhận",
                 NgayTao = DateTime.Now
             };
 
-            san.TrangThai = "Bận";
-
             _context.DonDatSan.Add(donDat);
-            _context.SanPickleball.Update(san);
             await _context.SaveChangesAsync();
 
             return Ok(new
@@ -312,50 +336,109 @@ namespace Pickleball_Smash.Controllers
             });
         }
 
-        [HttpPost]
-        public async Task<IActionResult> CheckoutCourt([FromBody] ManagerCheckoutCourtRequest request)
+        [HttpGet]
+        public async Task<IActionResult> GetCourtBookingsForDay(int sanId, string? ngayChoi)
         {
             if (!HasManagerAccess())
             {
                 return Forbid();
             }
 
-            if (request == null || request.SanID <= 0 || request.BookingID <= 0)
+            if (!DateOnly.TryParse(ngayChoi, out var date))
             {
-                return BadRequest(new { success = false, message = "Dữ liệu check-out không hợp lệ." });
+                return BadRequest(new { success = false, message = "Ngày không hợp lệ." });
             }
 
-            var donDat = await _context.DonDatSan
-                .FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
+            var trangThaiDonDangHoatDong = new[] { "Chờ xác nhận", "Đã xác nhận", "Đang chơi", "Đã đặt" };
+            
+            // Load raw data from database first
+            var rawBookings = await _context.DonDatSan
+                .AsNoTracking()
+                .Include(x => x.NguoiDung)
+                .Where(x =>
+                    x.SanID == sanId
+                    && x.NgayChoi == date
+                    && x.TrangThaiDon != null
+                    && trangThaiDonDangHoatDong.Contains(x.TrangThaiDon))
+                .OrderBy(x => x.ThoiGianBatDau)
+                .ToListAsync();
+            
+            // Format data in memory
+            var bookings = rawBookings
+                .Select(x => new
+                {
+                    x.DonDatSanID,
+                    khachHang = x.NguoiDung != null ? (x.NguoiDung.HoTen ?? x.NguoiDung.TenDangNhap ?? "Khách lẻ") : "Khách lẻ",
+                    soDienThoai = x.NguoiDung != null ? x.NguoiDung.SDT : "-",
+                    gioBatDau = x.ThoiGianBatDau != null ? x.ThoiGianBatDau.Value.ToString("HH:mm") : "--:--",
+                    gioKetThuc = x.ThoiGianKetThuc != null && x.ThoiGianKetThuc != TimeOnly.MinValue ? x.ThoiGianKetThuc.Value.ToString("HH:mm") : "24:00",
+                    tongTien = (x.TongTien ?? 0).ToString("N0"),
+                    trangThai = x.TrangThaiDon ?? "-"
+                })
+                .ToList();
 
-            if (donDat == null)
+            var pricingRanges = await _context.BangGiaKhungGio
+                .AsNoTracking()
+                .Where(x => x.SanID == sanId && x.GioBatDau.HasValue && x.GioKetThuc.HasValue && x.GiaTien.HasValue)
+                .Select(x => new
+                {
+                    startHour = x.GioBatDau!.Value.Hour,
+                    endHour = x.GioKetThuc!.Value == TimeOnly.MinValue ? 24 : x.GioKetThuc.Value.Hour,
+                    giaTien = x.GiaTien!.Value
+                })
+                .ToListAsync();
+
+            return Ok(new
             {
-                return NotFound(new { success = false, message = "Không tìm thấy đơn đang hoạt động của sân." });
+                success = true,
+                bookings = bookings,
+                pricingRanges = pricingRanges
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> LookupCustomerByPhone(string? soDienThoai)
+        {
+            if (!HasManagerAccess())
+            {
+                return Forbid();
             }
 
-            donDat.TrangThaiDon = "Hoàn thành";
-
-            var san = await _context.SanPickleball.FirstOrDefaultAsync(x => x.SanID == request.SanID);
-            if (san != null)
+            var phone = soDienThoai?.Trim();
+            if (string.IsNullOrWhiteSpace(phone))
             {
-                san.TrangThai = "Trống";
-                _context.SanPickleball.Update(san);
+                return Ok(new { found = false, hoTen = string.Empty });
             }
 
-            _context.DonDatSan.Update(donDat);
-            await _context.SaveChangesAsync();
+            var matchedName = await _context.DonDatSan
+                .AsNoTracking()
+                .Where(x => x.NguoiDung != null
+                    && x.NguoiDung.SDT != null
+                    && x.NguoiDung.SDT == phone
+                    && x.NguoiDung.HoTen != null
+                    && x.NguoiDung.HoTen.Trim() != string.Empty)
+                .OrderByDescending(x => x.NgayTao)
+                .Select(x => x.NguoiDung!.HoTen!)
+                .FirstOrDefaultAsync();
 
-            return Ok(new { success = true, message = "Đã check-out và giải phóng sân." });
+            if (string.IsNullOrWhiteSpace(matchedName))
+            {
+                return Ok(new { found = false, hoTen = string.Empty });
+            }
+
+            return Ok(new { found = true, hoTen = matchedName.Trim() });
         }
 
         private static ManagerCourtCardViewModel BuildCourtCard(SanPickleball san, DonDatSan? donDangHoatDong)
         {
-            var status = donDangHoatDong != null ? "Bận" : san.TrangThai?.Trim() ?? "Trống";
+            var status = san.TrangThai?.Trim() ?? "Trống";
+            var isAvailable = status.Contains("trống", StringComparison.OrdinalIgnoreCase);
 
             var card = new ManagerCourtCardViewModel
             {
                 SanID = san.SanID,
                 BookingDangHoatDongID = donDangHoatDong?.DonDatSanID,
+                CanBook = isAvailable,
                 TenSan = san.TenSan,
                 LoaiSan = string.IsNullOrWhiteSpace(san.LoaiSan) ? "Chưa cập nhật" : san.LoaiSan,
                 GiaCoBan = san.GiaCoBan ?? 0,
@@ -365,20 +448,9 @@ namespace Pickleball_Smash.Controllers
                     : san.MoTa!
             };
 
-            if (status.Contains("bận", StringComparison.OrdinalIgnoreCase)
-                || status.Contains("đã đặt", StringComparison.OrdinalIgnoreCase)
-                || status.Contains("hủy", StringComparison.OrdinalIgnoreCase)
-                || status.Contains("thất bại", StringComparison.OrdinalIgnoreCase))
+            if (!isAvailable)
             {
                 card.BadgeClass = "status-busy";
-                card.ActionClass = "btn-checkout";
-                card.ActionText = "Check-out";
-            }
-            else if (status.Contains("chờ", StringComparison.OrdinalIgnoreCase))
-            {
-                card.BadgeClass = "status-busy";
-                card.ActionClass = "btn-checkout";
-                card.ActionText = "Check-out";
             }
 
             return card;
@@ -395,5 +467,35 @@ namespace Pickleball_Smash.Controllers
             return role.Equals("Manager", StringComparison.OrdinalIgnoreCase)
                 || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
         }
+
+        private static bool TryParseBookingTime(string? value, out TimeOnly timeOnly, out bool isEndOfDay)
+        {
+            isEndOfDay = false;
+            timeOnly = default;
+
+            var normalized = value?.Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return false;
+            }
+
+            if (string.Equals(normalized, "24:00", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "24:00:00", StringComparison.OrdinalIgnoreCase))
+            {
+                timeOnly = TimeOnly.MinValue;
+                isEndOfDay = true;
+                return true;
+            }
+
+            return TimeOnly.TryParse(normalized, out timeOnly);
+        }
+
+        private static int GetBookingMinute(TimeOnly timeOnly, bool isEndOfDay)
+        {
+            return isEndOfDay || timeOnly == TimeOnly.MinValue
+                ? 24 * 60
+                : timeOnly.Hour * 60 + timeOnly.Minute;
+        }
+
     }
 }

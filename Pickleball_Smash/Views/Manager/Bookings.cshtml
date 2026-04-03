@@ -1,8 +1,17 @@
 @model IEnumerable<Pickleball_Smash.Models.DonDatSan>
+@using Microsoft.AspNetCore.Mvc.Rendering
 
 @{
     ViewData["Title"] = "Danh sách đặt sân";
     Layout = "~/Views/Shared/_ManagerLayout.cshtml";
+
+    var sanOptions = ViewBag.SanOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var khungGioOptions = ViewBag.KhungGioOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var trangThaiOptions = ViewBag.TrangThaiOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var selectedSanId = ViewBag.SelectedSanId?.ToString() ?? string.Empty;
+    var selectedKhungGio = ViewBag.SelectedKhungGio as string ?? string.Empty;
+    var selectedNgayTao = ViewBag.SelectedNgayTao as string ?? string.Empty;
+    var selectedTrangThai = ViewBag.SelectedTrangThai as string ?? string.Empty;
 }
 
 @section Styles {
@@ -12,6 +21,74 @@
 <div class="manager-page-head">
     <h1>Danh sách đặt sân</h1>
     <p>Theo dõi toàn bộ đơn đặt sân theo thời gian tạo mới nhất.</p>
+</div>
+
+<div class="table-card mb-3">
+    <form method="get" asp-controller="ManagerDonDatSan" asp-action="Bookings" class="court-filter-form bookings-filter-form">
+        <div class="filter-group">
+            <label for="sanId">Sân</label>
+            <select id="sanId" name="sanId" class="form-select">
+                <option value="">Tất cả sân</option>
+                @foreach (var san in sanOptions)
+                {
+                    if (selectedSanId == san.Value)
+                    {
+                        <option value="@san.Value" selected>@san.Text</option>
+                    }
+                    else
+                    {
+                        <option value="@san.Value">@san.Text</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="khungGio">Khung giờ</label>
+            <select id="khungGio" name="khungGio" class="form-select">
+                <option value="">Tất cả khung giờ</option>
+                @foreach (var khungGio in khungGioOptions)
+                {
+                    if (string.Equals(selectedKhungGio, khungGio.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <option value="@khungGio.Value" selected>@khungGio.Text</option>
+                    }
+                    else
+                    {
+                        <option value="@khungGio.Value">@khungGio.Text</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="ngayTao">Ngày tạo</label>
+            <input id="ngayTao" name="ngayTao" type="date" class="form-control" value="@selectedNgayTao" />
+        </div>
+
+        <div class="filter-group">
+            <label for="trangThai">Trạng thái</label>
+            <select id="trangThai" name="trangThai" class="form-select">
+                <option value="">Tất cả trạng thái</option>
+                @foreach (var status in trangThaiOptions)
+                {
+                    if (string.Equals(selectedTrangThai, status.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <option value="@status.Value" selected>@status.Text</option>
+                    }
+                    else
+                    {
+                        <option value="@status.Value">@status.Text</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-actions align-self-end">
+            <button type="submit" class="btn btn-primary">Lọc</button>
+            <a asp-controller="ManagerDonDatSan" asp-action="Bookings" class="btn btn-outline-secondary">Bỏ lọc</a>
+        </div>
+    </form>
 </div>
 
 <div class="table-card">
@@ -26,6 +103,7 @@
                     <th>Tổng tiền</th>
                     <th>Trạng thái</th>
                     <th>Ngày tạo</th>
+                    <th>Thao tác</th>
                 </tr>
             </thead>
             <tbody>
@@ -40,21 +118,205 @@
                             <td>
                                 @(item.ThoiGianBatDau?.ToString("HH\\:mm") ?? "--:--")
                                 -
-                                @(item.ThoiGianKetThuc?.ToString("HH\\:mm") ?? "--:--")
+                                @(item.ThoiGianKetThuc.HasValue && item.ThoiGianKetThuc.Value == TimeOnly.MinValue ? "24:00" : item.ThoiGianKetThuc?.ToString("HH\\:mm") ?? "--:--")
                             </td>
                             <td>@((item.TongTien ?? 0).ToString("N0")) đ</td>
-                            <td>@(item.TrangThaiDon ?? "-")</td>
+                            <td>
+                                @{
+                                    var status = item.TrangThaiDon?.Trim() ?? "-";
+                                    var statusClass = status.Equals("Chờ xác nhận", StringComparison.OrdinalIgnoreCase) ? "bg-warning text-dark"
+                                        : status.Equals("Đã xác nhận", StringComparison.OrdinalIgnoreCase) ? "bg-info text-dark"
+                                        : status.Equals("Đang chơi", StringComparison.OrdinalIgnoreCase) ? "bg-success"
+                                        : status.Equals("Đã đặt", StringComparison.OrdinalIgnoreCase) ? "bg-primary"
+                                        : status.Equals("Hoàn thành", StringComparison.OrdinalIgnoreCase) ? "bg-secondary"
+                                        : status.Equals("Đã hủy", StringComparison.OrdinalIgnoreCase) ? "bg-danger"
+                                        : status.Equals("Thất bại", StringComparison.OrdinalIgnoreCase) ? "bg-dark"
+                                        : "bg-light text-dark";
+                                }
+                                <span class="badge @statusClass">@status</span>
+                            </td>
                             <td>@(item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                            <td>
+                                @{
+                                    var actionStatus = item.TrangThaiDon?.Trim() ?? string.Empty;
+                                    var isWaiting = actionStatus.Equals("Chờ xác nhận", StringComparison.OrdinalIgnoreCase);
+                                    var isReadyToCheckout = actionStatus.Equals("Đã xác nhận", StringComparison.OrdinalIgnoreCase)
+                                        || actionStatus.Equals("Đang chơi", StringComparison.OrdinalIgnoreCase)
+                                        || actionStatus.Equals("Đã đặt", StringComparison.OrdinalIgnoreCase);
+                                }
+
+                                <div class="d-flex flex-wrap gap-2">
+                                    @if (isWaiting)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-success js-confirm-booking"
+                                                data-booking-id="@item.DonDatSanID"
+                                                data-san-id="@(item.SanID ?? 0)">
+                                            Xác nhận
+                                        </button>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger js-cancel-booking"
+                                                data-booking-id="@item.DonDatSanID"
+                                                data-san-id="@(item.SanID ?? 0)">
+                                            Hủy
+                                        </button>
+                                    }
+
+                                    @if (isReadyToCheckout)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary js-checkout-booking"
+                                                data-booking-id="@item.DonDatSanID"
+                                                data-san-id="@(item.SanID ?? 0)">
+                                            Check-out
+                                        </button>
+                                    }
+
+                                    @if (!isWaiting && !isReadyToCheckout)
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </div>
+                            </td>
                         </tr>
                     }
                 }
                 else
                 {
                     <tr>
-                        <td colspan="7" class="text-center">Chưa có dữ liệu đơn đặt sân.</td>
+                        <td colspan="8" class="text-center">Chưa có dữ liệu đơn đặt sân.</td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const confirmBookingUrl = '@Url.Action("ConfirmBooking", "ManagerDonDatSan")';
+            const checkoutBookingUrl = '@Url.Action("CheckoutCourt", "ManagerDonDatSan")';
+            const cancelBookingUrl = '@Url.Action("CancelBooking", "ManagerDonDatSan")';
+
+            const showMessage = async (icon, title, text) => {
+                if (typeof Swal === "undefined") {
+                    alert(text);
+                    return;
+                }
+
+                await Swal.fire({
+                    icon,
+                    title,
+                    text,
+                    confirmButtonText: "OK"
+                });
+            };
+
+            const confirmAction = async (message) => {
+                if (typeof Swal === "undefined") {
+                    return confirm(message);
+                }
+
+                const result = await Swal.fire({
+                    icon: "question",
+                    title: "Xác nhận",
+                    text: message,
+                    showCancelButton: true,
+                    confirmButtonText: "Đồng ý",
+                    cancelButtonText: "Hủy"
+                });
+
+                return !!result.isConfirmed;
+            };
+
+            const submitBookingAction = async (url, payload, button, successText) => {
+                const originalText = button.textContent;
+                button.disabled = true;
+                button.textContent = "Đang xử lý...";
+
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok || !result?.success) {
+                        await showMessage("error", "Có lỗi xảy ra", result?.message || "Thao tác không thành công.");
+                        return;
+                    }
+
+                    await showMessage("success", "Thành công", successText);
+                    window.location.reload();
+                } catch (error) {
+                    await showMessage("error", "Có lỗi xảy ra", "Lỗi kết nối máy chủ. Vui lòng thử lại.");
+                } finally {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            };
+
+            document.querySelectorAll(".js-confirm-booking").forEach(button => {
+                button.addEventListener("click", async function () {
+                    const bookingId = Number(this.dataset.bookingId || 0);
+                    const sanId = Number(this.dataset.sanId || 0);
+
+                    if (!bookingId || !sanId) {
+                        await showMessage("error", "Có lỗi xảy ra", "Không tìm thấy dữ liệu đơn để xác nhận.");
+                        return;
+                    }
+
+                    const ok = await confirmAction("Bạn muốn xác nhận đơn đặt sân này?");
+                    if (!ok) {
+                        return;
+                    }
+
+                    await submitBookingAction(confirmBookingUrl, { bookingID: bookingId, sanID: sanId }, this, "Đã xác nhận đơn đặt sân.");
+                });
+            });
+
+            document.querySelectorAll(".js-checkout-booking").forEach(button => {
+                button.addEventListener("click", async function () {
+                    const bookingId = Number(this.dataset.bookingId || 0);
+                    const sanId = Number(this.dataset.sanId || 0);
+
+                    if (!bookingId || !sanId) {
+                        await showMessage("error", "Có lỗi xảy ra", "Không tìm thấy dữ liệu đơn để check-out.");
+                        return;
+                    }
+
+                    const ok = await confirmAction("Bạn muốn check-out để giải phóng sân này?");
+                    if (!ok) {
+                        return;
+                    }
+
+                    await submitBookingAction(checkoutBookingUrl, { bookingID: bookingId, sanID: sanId }, this, "Đã check-out và giải phóng sân.");
+                });
+            });
+
+            document.querySelectorAll(".js-cancel-booking").forEach(button => {
+                button.addEventListener("click", async function () {
+                    const bookingId = Number(this.dataset.bookingId || 0);
+                    const sanId = Number(this.dataset.sanId || 0);
+
+                    if (!bookingId || !sanId) {
+                        await showMessage("error", "Có lỗi xảy ra", "Không tìm thấy dữ liệu đơn để hủy.");
+                        return;
+                    }
+
+                    const ok = await confirmAction("Bạn chắc chắn muốn hủy đơn đặt sân này?");
+                    if (!ok) {
+                        return;
+                    }
+
+                    await submitBookingAction(cancelBookingUrl, { bookingID: bookingId, sanID: sanId }, this, "Đã hủy đơn đặt sân.");
+                });
+            });
+        })();
+    </script>
+}
