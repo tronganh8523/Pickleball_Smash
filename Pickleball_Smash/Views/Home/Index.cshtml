@@ -1,8 +1,101 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model IEnumerable<Pickleball_Smash.Models.SanPickleball>
+
+@{
+    ViewData["Title"] = "Trang Chủ";
+    Layout = "~/Views/Shared/_CustomerLayout.cshtml";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="about-section py-5 my-4">
+    <div class="custom-container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <h2 class="section-title">Về Chúng Tôi</h2>
+                <p>
+                    Pickleball Smash tự hào là điểm đến lý tưởng cho cộng đồng đam mê Pickleball.
+                    Chúng tôi cung cấp hệ thống sân tập đạt chuẩn quốc tế, không gian rộng rãi cùng
+                    dịch vụ tiện ích trọn gói, mang lại trải nghiệm thể thao tuyệt vời nhất cho người chơi ở mọi cấp độ.
+                </p>
+                <ul class="about-list">
+                    <li><i class="fas fa-check-circle"></i> Mặt sân tiêu chuẩn thi đấu, chống trơn trượt</li>
+                    <li><i class="fas fa-check-circle"></i> Hệ thống chiếu sáng LED chống lóa ban đêm</li>
+                    <li><i class="fas fa-check-circle"></i> Khu vực nghỉ ngơi, phòng thay đồ hiện đại</li>
+                    <li><i class="fas fa-check-circle"></i> Hỗ trợ cho thuê vợt và dụng cụ chuyên nghiệp</li>
+                </ul>
+                <a href="/San" class="btn-solid mt-3 d-inline-block" style="padding: 12px 30px;">Đặt Sân Ngay</a>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="about-images-wrapper">
+                    <img src="~/Img/SanMau1.jpg" alt="Sân Pickleball 1" class="img-main" />
+                    <img src="~/Img/SanMau2.jpg" alt="Sân Pickleball 2" class="img-sub-1" />
+                    <img src="~/Img/SanMau3.jpg" alt="Sân Pickleball 3" class="img-sub-2" />
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="category-section py-5 bg-light mt-5">
+    <div class="custom-container">
+        <div class="text-center mb-5">
+            <h2 class="section-title text-center">Hệ Thống Sân</h2>
+            <p class="text-muted mt-3">Lựa chọn không gian chơi phù hợp với sở thích của bạn</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6">
+                <a href="/San?loaiSan=Trong nhà" class="category-card">
+                    <img src="~/Img/SanMau1.jpg" alt="Sân trong nhà" />
+                    <div class="category-overlay">
+                        <h3>Sân Trong Nhà</h3>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6">
+                <a href="/San?loaiSan=Ngoài trời" class="category-card">
+                    <img src="~/Img/SanMau2.jpg" alt="Sân ngoài trời" />
+                    <div class="category-overlay">
+                        <h3>Sân Ngoài Trời</h3>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@if (Model != null && Model.Any())
+{
+    <section class="court-container py-5 my-4">
+        <h2 class="section-title text-center mb-5" style="display: block;">Sân Nổi Bật Mới Nhất</h2>
+        <div class="customer-court-grid">
+            @foreach (var san in Model)
+            {
+                <div class="cus-court-card">
+                    <img src="@(san.HinhAnhSans?.FirstOrDefault()?.DuongDanURL ?? "/Img/SanMau1.jpg")" alt="@san.TenSan" class="cus-court-img" />
+                    <div class="cus-court-info">
+                        <h3>@san.TenSan</h3>
+                        <p><i class="fas fa-map-marker-alt" style="color: var(--primary-green); width: 20px;"></i> @san.LoaiSan</p>
+                        <p><i class="fas fa-info-circle" style="color: var(--primary-green); width: 20px;"></i> Trạng thái: @(san.TrangThai ?? "Trống")</p>
+                        <div class="cus-court-price">
+                            Giá: @(san.GiaCoBan?.ToString("N0") ?? "0") đ/giờ
+                        </div>
+                        <div class="cus-court-actions">
+                            <a href="#" class="btn-detail"
+                                   data-id="@san.SanID"
+                                   data-name="@san.TenSan"
+                                   data-type="@san.LoaiSan"
+                                   data-price="@(san.GiaCoBan?.ToString("N0") ?? "0")"
+                                   data-desc="@(san.MoTa ?? "")"
+                                   data-img="@(san.HinhAnhSans?.FirstOrDefault()?.DuongDanURL ?? "/Img/SanMau1.jpg")">
+                                Xem chi tiết
+                            </a>
+                            
+                           <a href="#" class="btn-book" data-id="@san.SanID">Đặt sân</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+}

@@ -1,0 +1,73 @@
+﻿@model IEnumerable<Pickleball_Smash.Models.SanPickleball>
+
+@{
+    ViewData["Title"] = "Danh sách sân";
+    Layout = "~/Views/Shared/_CustomerLayout.cshtml";
+}
+
+<section class="filter-section">
+    <form method="get" asp-action="Index" class="filter-form">
+        <div class="filter-group">
+            <label>Tên sân</label>
+            <input type="text" name="searchQuery" class="filter-control" placeholder="Nhập tên sân..." />
+        </div>
+        <div class="filter-group">
+            <label>Loại sân</label>
+            <select name="loaiSan" class="filter-control">
+                <option value="">-- Tất cả --</option>
+                <option value="Trong nhà">Sân trong nhà</option>
+                <option value="Ngoài trời">Sân ngoài trời</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Mức giá</label>
+            <select name="mucGia" class="filter-control">
+                <option value="">-- Tất cả --</option>
+                <option value="duoi100">Dưới 100k</option>
+                <option value="tren100">Từ 100k trở lên</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-search"><i class="fas fa-search"></i> Tìm kiếm</button>
+    </form>
+</section>
+
+<section class="court-container">
+    <div class="customer-court-grid">
+        @if (Model != null && Model.Any())
+        {
+            @foreach (var san in Model)
+            {
+                <div class="cus-court-card">
+                    <img src="@(san.HinhAnhSans?.FirstOrDefault()?.DuongDanURL ?? "/Img/SanMau1.jpg")" alt="@san.TenSan" class="cus-court-img" />
+                    <div class="cus-court-info">
+                        <h3>@san.TenSan</h3>
+                        <p><i class="fas fa-map-marker-alt" style="color: var(--primary-green); width: 20px;"></i> @san.LoaiSan</p>
+                        <p><i class="fas fa-info-circle" style="color: var(--primary-green); width: 20px;"></i> Trạng thái: @(san.TrangThai ?? "Đang mở")</p>
+                        <div class="cus-court-price">
+                            Giá: @(san.GiaCoBan?.ToString("N0") ?? "0") đ/giờ
+                        </div>
+                        <div class="cus-court-actions">
+                            <a href="#" class="btn-detail"
+                                   data-id="@san.SanID"
+                                   data-name="@san.TenSan"
+                                   data-type="@san.LoaiSan"
+                                   data-price="@(san.GiaCoBan?.ToString("N0") ?? "0")"
+                                   data-desc="@(san.MoTa ?? "Sân thiết kế đạt chuẩn, không gian thoải mái với đầy đủ tiện nghi.")"
+                                   data-img="@(san.HinhAnhSans?.FirstOrDefault()?.DuongDanURL ?? "/Img/SanMau1.jpg")">
+                                Xem chi tiết
+                            </a>
+                            <a href="#" class="btn-book" data-id="@san.SanID">Đặt sân</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div style="grid-column: 1 / -1; text-align: center; padding: 50px;">
+                <h4>Không tìm thấy sân nào phù hợp!</h4>
+            </div>
+        }
+    </div>
+</section>
+
