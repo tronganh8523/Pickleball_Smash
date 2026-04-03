@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
 
-namespace Pickleball_Smash.Controllers
+namespace Pickleball_Smash.Controllers.User.Accoutnt
 {
     public class AccountController : Controller
     {

@@ -8,6 +8,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="wwwroot\Img\Anh-nen-trang-mo-ao.jpg" />
+    <None Include="wwwroot\Img\avatar-shin-cute-8.jpg" />
+    <None Include="wwwroot\Img\Img_banner.png" />
+    <None Include="wwwroot\Img\logoReal.png" />
+    <None Include="wwwroot\Img\pngtree-avatar-chinese-cute-cici-profile-png-image_8626546.png" />
+    <None Include="wwwroot\Img\pngtree-padel-tennis-player-man-isolated-white-background-cut-out-player-padel-photo-image_33805294.jpg" />
+    <None Include="wwwroot\Img\qrr.jpg" />
+    <None Include="wwwroot\Img\SanMau1.jpg" />
+    <None Include="wwwroot\Img\SanMau2.jpg" />
+    <None Include="wwwroot\Img\SanMau3.jpg" />
+    <None Include="wwwroot\Img\SanMau4.jpg" />
+    <None Include="wwwroot\Img\SanMau5.jpg" />
+    <None Include="wwwroot\Img\SanMau6.jpg" />
+    <None Include="wwwroot\Img\SanMau7.jpg" />
+    <None Include="wwwroot\Img\SanMau8.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
