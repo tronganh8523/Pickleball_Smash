@@ -47,7 +47,7 @@
                                 <tr>
                                     <td>@(item.SanPickleball?.TenSan ?? "-")</td>
                                     <td>@(item.GioBatDau?.ToString("HH\\:mm") ?? "-")</td>
-                                    <td>@(item.GioKetThuc?.ToString("HH\\:mm") ?? "-")</td>
+                                    <td>@(item.GioKetThuc.HasValue && item.GioKetThuc.Value == TimeOnly.MinValue ? "24:00" : item.GioKetThuc?.ToString("HH\\:mm") ?? "-")</td>
                                     <td>@(item.GiaTien?.ToString("N0") ?? "0") VNĐ</td>
                                     <td>
                                         <button type="button"

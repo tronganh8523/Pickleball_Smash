@@ -14,11 +14,6 @@
         <div class="col-md-8">
             <h1 class="h3 mb-0 text-dark"><i class="fas fa-users"></i> Danh Sách Tài Khoản</h1>
         </div>
-        <div class="col-md-4 text-right">
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
-                <i class="fas fa-plus"></i> Thêm Tài Khoản Mới
-            </button>
-        </div>
     </div>
 
     @if (TempData["Success"] != null)
@@ -95,7 +90,6 @@
     </div>
 </div>
 
-@await Html.PartialAsync("~/Views/Admin/User/_CreateModal.cshtml")
 @await Html.PartialAsync("~/Views/Admin/User/_EditModal.cshtml")
 
 @section Scripts {
@@ -115,13 +109,11 @@
             }
 
             const editModalElement = document.getElementById("editUserModal");
-            const createModalElement = document.getElementById("createUserModal");
             if (!editModalElement) return;
 
             const editModal = new bootstrap.Modal(editModalElement);
-            const createModal = createModalElement ? new bootstrap.Modal(createModalElement) : null;
 
-            const fillUserForm = function (form, data, isEdit) {
+            const fillEditForm = function (form, data) {
                 if (!form || !data) return;
                 form.querySelector("[name='TenDangNhap']").value = data.TenDangNhap || "";
                 form.querySelector("[name='MatKhau']").value = data.MatKhau || "";
@@ -130,13 +122,10 @@
                 form.querySelector("[name='SDT']").value = data.SDT || "";
                 form.querySelector("[name='GioiTinh']").value = data.GioiTinh || "";
                 form.querySelector("[name='VaiTro']").value = data.VaiTro || "";
-
-                if (isEdit) {
-                    form.querySelector("[name='id']").value = data.NguoiDungID || "";
-                    form.querySelector("[name='NguoiDungID']").value = data.NguoiDungID || "";
-                    const ngayTaoRaw = (data.NgayTao || "").slice(0, 19);
-                    form.querySelector("[name='NgayTao']").value = ngayTaoRaw;
-                }
+                form.querySelector("[name='id']").value = data.NguoiDungID || "";
+                form.querySelector("[name='NguoiDungID']").value = data.NguoiDungID || "";
+                const ngayTaoRaw = (data.NgayTao || "").slice(0, 19);
+                form.querySelector("[name='NgayTao']").value = ngayTaoRaw;
             };
 
             document.querySelectorAll(".js-open-edit-user").forEach(function (button) {
@@ -159,13 +148,8 @@
                 });
             });
 
-            if (openModal === "create-user" && createModal && restoredData) {
-                fillUserForm(createModalElement.querySelector("form"), restoredData, false);
-                createModal.show();
-            }
-
             if (openModal === "edit-user" && restoredData) {
-                fillUserForm(editModalElement.querySelector("form"), restoredData, true);
+                fillEditForm(editModalElement.querySelector("form"), restoredData);
                 editModal.show();
             }
 

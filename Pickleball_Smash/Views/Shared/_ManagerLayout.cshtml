@@ -43,11 +43,11 @@
                     <i class="fas fa-house"></i>
                     Trang Chủ
                 </a>
-                <a class="menu-item @(currentController == "Manager" && currentAction == "Bookings" ? "active" : "")" href="@Url.Action("Bookings", "Manager")">
+                <a class="menu-item @(currentController == "ManagerDonDatSan" && currentAction == "Bookings" ? "active" : "")" href="@Url.Action("Bookings", "ManagerDonDatSan")">
                     <i class="fas fa-calendar-check"></i>
                     Danh sách đặt sân
                 </a>
-                <a class="menu-item @(currentController == "Manager" && currentAction == "History" ? "active" : "")" href="@Url.Action("History", "Manager")">
+                <a class="menu-item @(currentController == "ManagerHistory" && currentAction == "History" ? "active" : "")" href="@Url.Action("History", "ManagerHistory")">
                     <i class="fas fa-clock-rotate-left"></i>
                     Lịch sử
                 </a>
@@ -74,11 +74,6 @@
                 <button id="menuToggle" class="menu-toggle" type="button">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Tìm kiếm sân hoặc mã đơn..." />
-                </div>
-                <a href="@Url.Action("Bookings", "Manager")" class="topbar-btn">Tạo mới</a>
             </header>
 
             <section class="manager-content">

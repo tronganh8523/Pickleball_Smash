@@ -25,52 +25,6 @@ namespace Pickleball_Smash.Controllers
             return View("~/Views/Admin/User/Index.cshtml", items);
         }
 
-        // GET: User - Create
-        public IActionResult Create()
-        {
-            TempData["Error"] = "Vui lòng thao tác tạo tài khoản bằng popup tại trang danh sách.";
-            return RedirectToAction(nameof(Index), "AdminUser");
-        }
-
-        // POST: User - Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("TenDangNhap,MatKhau,Email,HoTen,GioiTinh,SDT,VaiTro")] NguoiDung nguoiDung)
-        {
-            nguoiDung.TenDangNhap = nguoiDung.TenDangNhap?.Trim() ?? string.Empty;
-            nguoiDung.Email = nguoiDung.Email?.Trim();
-            nguoiDung.SDT = nguoiDung.SDT?.Trim();
-            ValidateUser(nguoiDung);
-
-            if (await IsUsernameExists(nguoiDung.TenDangNhap))
-            {
-                ModelState.AddModelError("TenDangNhap", "Tên đăng nhập đã tồn tại.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(nguoiDung.Email) && await IsEmailExists(nguoiDung.Email))
-            {
-                ModelState.AddModelError("Email", "Email đã tồn tại.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(nguoiDung.SDT) && await IsPhoneExists(nguoiDung.SDT))
-            {
-                ModelState.AddModelError("SDT", "Số điện thoại đã tồn tại.");
-            }
-
-            if (ModelState.IsValid)
-            {
-                nguoiDung.MatKhau = BCrypt.Net.BCrypt.HashPassword(nguoiDung.MatKhau);
-                nguoiDung.NgayTao = DateTime.Now;
-                _context.Add(nguoiDung);
-                await _context.SaveChangesAsync();
-                TempData["Success"] = "Thêm tài khoản thành công!";
-                return RedirectToAction(nameof(Index), "AdminUser");
-            }
-
-            SetModalState("create-user", nguoiDung);
-            return RedirectToAction(nameof(Index), "AdminUser");
-        }
-
         // GET: User - Edit
         public IActionResult Edit(int? id)
         {

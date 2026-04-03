@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
 
 namespace Pickleball_Smash.Controllers;
@@ -9,22 +7,15 @@ namespace Pickleball_Smash.Controllers;
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
-    private readonly AppDbContext _context;
 
-    public HomeController(ILogger<HomeController> logger, AppDbContext context)
+    public HomeController(ILogger<HomeController> logger)
     {
         _logger = logger;
-        _context = context;
     }
 
-    public async Task<IActionResult> Index()
+    public IActionResult Index()
     {
-        var sanNoiBat = await _context.SanPickleball
-            .OrderByDescending(s => s.SanID)
-            .Take(8)
-            .ToListAsync();
-
-        return View(sanNoiBat);
+        return View();
     }
 
     public IActionResult Privacy()
