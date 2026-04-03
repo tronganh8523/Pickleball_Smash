@@ -161,7 +161,7 @@ namespace Pickleball_Smash.Controllers
                 .Select(d => new {
                     maHoaDon = d.DonDatSanID.ToString("D3"),
                     ngayThanhToan = d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy") : "",
-                    loaiSan = d.SanPickleball.LoaiSan,
+                    loaiSan = d.SanPickleball != null ? d.SanPickleball.LoaiSan : string.Empty,
                     khungGio = $"{d.ThoiGianBatDau:hh\\:mm} - {d.ThoiGianKetThuc:hh\\:mm}",
                     tongTien = d.TongTien,
                     trangThai = d.TrangThaiDon
@@ -177,8 +177,8 @@ namespace Pickleball_Smash.Controllers
     {
         public int SanID { get; set; }
         public DateTime NgayDat { get; set; }
-        public List<int> SelectedHours { get; set; } // Danh sách các giờ được chọn (ví dụ: [5, 6, 18])
-        public string GhiChu { get; set; }
+        public List<int> SelectedHours { get; set; } = new(); // Danh sách các giờ được chọn (ví dụ: [5, 6, 18])
+        public string? GhiChu { get; set; }
         public decimal TongTien { get; set; }
     }
 }
