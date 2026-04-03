@@ -257,90 +257,93 @@ async function fetchDetailSlots() {
         slot.className = 'time-slot';
         if (dtBookedSlots.includes(i)) {
             slot.classList.add('slot-busy');
-            slot.innerText = `${i}:00 (Bận)`;
+            // Đổi innerText thành innerHTML và thêm <br>
+            slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Bận)`;
         } else {
             slot.classList.add('slot-available');
-            slot.innerText = `${i}:00 (Trống)`;
+            // Đổi innerText thành innerHTML và thêm <br>
+            slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Trống)`;
         }
         grid.appendChild(slot);
     }
-    // ================= PROFILE & EDIT PROFILE =================
-    async function openProfileModal() {
-        if (!window.isLoggedIn) return;
+}
 
-        // Fetch dữ liệu từ server
-        const res = await fetch('/Account/GetProfile');
-        if (res.ok) {
-            const data = await res.json();
-            // Hiển thị lên Popup Thông tin cá nhân
-            document.getElementById('lblHoTen').innerText = data.hoTen || 'Chưa cập nhật';
-            document.getElementById('lblEmail').innerText = data.email || 'Chưa cập nhật';
-            document.getElementById('lblSDT').innerText = data.sdt || 'Chưa cập nhật';
-            document.getElementById('lblNgaySinh').innerText = data.ngaySinh ? data.ngaySinh.split('-').reverse().join('/') : 'Chưa cập nhật';
-            document.getElementById('lblGioiTinh').innerText = data.gioiTinh || 'Nam';
-            document.getElementById('lblMaKH').innerText = data.maKhachHang;
+// ================= PROFILE & EDIT PROFILE =================
+async function openProfileModal() {
+    if (!window.isLoggedIn) return;
 
-            // Lưu tạm data để điền vào form Edit nếu khách bấm chỉnh sửa
-            window.currentProfileData = data;
+    // Fetch dữ liệu từ server
+    const res = await fetch('/Account/GetProfile');
+    if (res.ok) {
+        const data = await res.json();
+        // Hiển thị lên Popup Thông tin cá nhân
+        document.getElementById('lblHoTen').innerText = data.hoTen || 'Chưa cập nhật';
+        document.getElementById('lblEmail').innerText = data.email || 'Chưa cập nhật';
+        document.getElementById('lblSDT').innerText = data.sdt || 'Chưa cập nhật';
+        document.getElementById('lblNgaySinh').innerText = data.ngaySinh ? data.ngaySinh.split('-').reverse().join('/') : 'Chưa cập nhật';
+        document.getElementById('lblGioiTinh').innerText = data.gioiTinh || 'Nam';
+        document.getElementById('lblMaKH').innerText = data.maKhachHang;
 
-            openModal('profileModal');
-        }
+        // Lưu tạm data để điền vào form Edit nếu khách bấm chỉnh sửa
+        window.currentProfileData = data;
+
+        openModal('profileModal');
+    }
+}
+
+function openEditProfileModal() {
+    closeModal('profileModal');
+
+    // Đổ dữ liệu có sẵn vào các ô input
+    const data = window.currentProfileData;
+    if (data) {
+        document.getElementById('updHoTen').value = data.hoTen || '';
+        document.getElementById('updEmail').value = data.email || '';
+        document.getElementById('updSDT').value = data.sdt || '';
+        document.getElementById('updNgaySinh').value = data.ngaySinh || '';
+        document.getElementById('updGioiTinh').value = data.gioiTinh || 'Nam';
+
+        // Reset password fields
+        document.getElementById('updOldPass').value = '';
+        document.getElementById('updNewPass').value = '';
+        document.getElementById('updConfirmPass').value = '';
     }
 
-    function openEditProfileModal() {
-        closeModal('profileModal');
+    openModal('editProfileModal');
+}
 
-        // Đổ dữ liệu có sẵn vào các ô input
-        const data = window.currentProfileData;
-        if (data) {
-            document.getElementById('updHoTen').value = data.hoTen || '';
-            document.getElementById('updEmail').value = data.email || '';
-            document.getElementById('updSDT').value = data.sdt || '';
-            document.getElementById('updNgaySinh').value = data.ngaySinh || '';
-            document.getElementById('updGioiTinh').value = data.gioiTinh || 'Nam';
+async function submitUpdateProfile() {
+    const newPass = document.getElementById('updNewPass').value;
+    const confirmPass = document.getElementById('updConfirmPass').value;
 
-            // Reset password fields
-            document.getElementById('updOldPass').value = '';
-            document.getElementById('updNewPass').value = '';
-            document.getElementById('updConfirmPass').value = '';
-        }
-
-        openModal('editProfileModal');
+    if (newPass && newPass !== confirmPass) {
+        alert("Mật khẩu xác nhận không khớp!");
+        return;
     }
 
-    async function submitUpdateProfile() {
-        const newPass = document.getElementById('updNewPass').value;
-        const confirmPass = document.getElementById('updConfirmPass').value;
+    const payload = {
+        FullName: document.getElementById('updHoTen').value,
+        Email: document.getElementById('updEmail').value,
+        Phone: document.getElementById('updSDT').value,
+        Dob: document.getElementById('updNgaySinh').value,
+        Gender: document.getElementById('updGioiTinh').value,
+        OldPassword: document.getElementById('updOldPass').value,
+        NewPassword: newPass
+    };
 
-        if (newPass && newPass !== confirmPass) {
-            alert("Mật khẩu xác nhận không khớp!");
-            return;
-        }
+    const res = await fetch('/Account/UpdateProfile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
 
-        const payload = {
-            FullName: document.getElementById('updHoTen').value,
-            Email: document.getElementById('updEmail').value,
-            Phone: document.getElementById('updSDT').value,
-            Dob: document.getElementById('updNgaySinh').value,
-            Gender: document.getElementById('updGioiTinh').value,
-            OldPassword: document.getElementById('updOldPass').value,
-            NewPassword: newPass
-        };
-
-        const res = await fetch('/Account/UpdateProfile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await res.json();
-        if (result.success) {
-            alert(result.message);
-            closeModal('editProfileModal');
-            // Tải lại trang để update tên trên Header
-            window.location.reload();
-        } else {
-            alert(result.message);
-        }
+    const result = await res.json();
+    if (result.success) {
+        alert(result.message);
+        closeModal('editProfileModal');
+        // Tải lại trang để update tên trên Header
+        window.location.reload();
+    } else {
+        alert(result.message);
     }
 }

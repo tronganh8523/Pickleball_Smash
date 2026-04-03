@@ -30,7 +30,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 15px 20px;
-    gap: 20px; /* Thêm gap để các khối không dính nhau */
+    gap: 20px;
 }
 
 .header-logo img {
@@ -62,7 +62,7 @@ body {
 .header-search {
     flex-grow: 1;
     max-width: 320px;
-    margin-left: auto; /* Đẩy khối search và button sang phải */
+    margin-left: auto;
     margin-right: 15px;
 }
 
@@ -75,9 +75,11 @@ body {
         border: 1.5px solid #ced4da;
         transition: border-color 0.3s;
     }
+
         .header-search form:hover {
-            border-color: #adb5bd; /* Đậm viền khi hover chuột */
+            border-color: #adb5bd;
         }
+
         .header-search form:focus-within {
             border-color: var(--primary-green);
             background: #ffffff;
@@ -93,8 +95,9 @@ body {
         font-size: 0.95rem;
         color: var(--text-dark);
     }
+
         .header-search input::placeholder {
-            color: #888; /* Màu chữ placeholder đậm hơn */
+            color: #888;
         }
 
     .header-search button {
@@ -147,7 +150,6 @@ body {
             background: var(--primary-hover);
         }
 /* ================= BANNER ================= */
-   /* Layer chéo đậm */
 .page-banner {
     position: relative;
     height: 350px;
@@ -156,6 +158,7 @@ body {
     overflow: hidden;
     background: none;
 }
+
 .page-banner-bg {
     position: absolute;
     top: 0;
@@ -163,11 +166,10 @@ body {
     width: 100%;
     height: 100%;
     background: linear-gradient(135deg, #0aa11f 0%, #0c8f1a 100%);
-    clip-path: polygon( 0 0, 100% 0, 100% 75%, 60% 100%, 0 88% );
+    clip-path: polygon( 0 0, 100% 0, 100% 60%, 40% 100%, 0 75% );
     z-index: 1;
 }
 
-    /* Layer chéo nhạt */
 .page-banner::after {
     content: "";
     position: absolute;
@@ -175,21 +177,20 @@ body {
     background: linear-gradient(135deg, #0aa11f, #0c8f1a);
     clip-path: polygon( 0 0, 100% 0, 100% 85%, 65% 102%, 0 90% );
     opacity: 0.25;
-    z-index: 2; /* 🔥 nằm trên bg nhưng dưới content */
+    z-index: 2;
 }
 
-    /* Dải trắng phía dưới */
-    .page-banner .banner-bottom {
-        position: absolute;
-        bottom: -60px;
-        left: 0;
-        width: 120%;
-        height: 120px;
-        background: #e5e5e5;
-        transform: skewY(-6deg);
-        transform-origin: left;
-        z-index: 0;
-    }
+.page-banner .banner-bottom {
+    position: absolute;
+    bottom: -60px;
+    left: 0;
+    width: 120%;
+    height: 120px;
+    background: #e5e5e5;
+    transform: skewY(-6deg);
+    transform-origin: left;
+    z-index: 0;
+}
 
 .banner-content {
     position: relative;
@@ -201,41 +202,39 @@ body {
 }
 
     .banner-content h1 {
-        font-size: 3.5rem; /* Có thể tăng size lên một chút cho hoành tráng */
+        font-size: 3.5rem;
         font-weight: 800;
-        color: #ffffff; /* Đổi thành chữ trắng để nổi trên nền xanh */
+        color: #ffffff;
         margin: 0 0 10px 0;
         text-transform: uppercase;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Đổ bóng chữ nhẹ */
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .banner-content .breadcrumb {
         font-size: 1.05rem;
-        color: rgba(255, 255, 255, 0.8); /* Chữ trắng mờ */
+        color: rgba(255, 255, 255, 0.8);
         font-weight: 500;
     }
 
-        /* Đổi lại inline style trong View cho chữ 'Danh sách sân' thành trắng */
         .banner-content .breadcrumb span.active-page {
             color: #ffffff;
             font-weight: 700;
         }
 
-/* Hiệu ứng ảnh người chơi chồng lên Banner */
 .banner-image-overlay {
     position: absolute;
-    right: 5%;
+    right: 20%;
     bottom: 10px;
     height: 100%;
     z-index: 3;
     pointer-events: none;
-    filter: drop-shadow(-10px 10px 15px rgba(0,0,0,0.2)); /* Đổ bóng cho ảnh người để tạo độ nổi 3D */
+    filter: drop-shadow(-10px 10px 15px rgba(0,0,0,0.2));
 }
 
 /* ================= FILTER BARS ================= */
 .filter-section {
     max-width: 1200px;
-    margin: -30px auto 40px; /* Kéo bộ lọc đè lên banner một chút */
+    margin: -30px auto 40px;
     position: relative;
     z-index: 10;
     background: #fff;
@@ -247,8 +246,8 @@ body {
 .filter-form {
     display: flex;
     gap: 15px;
-    align-items: flex-end; /* Căn dưới đáy cho đều với nút bấm */
-    flex-wrap: wrap; /* Thêm dòng này để tự động rớt dòng nếu màn hình nhỏ */
+    align-items: flex-end;
+    flex-wrap: wrap;
 }
 
 .filter-group {
@@ -270,7 +269,7 @@ body {
     border-radius: 8px;
     font-size: 1rem;
     outline: none;
-    box-sizing: border-box; /* THÊM DÒNG NÀY ĐỂ FIX LỖI ĐÈ TRÀN VIỀN */
+    box-sizing: border-box;
 }
 
     .filter-control:focus {
@@ -359,21 +358,21 @@ body {
 .btn-detail {
     flex: 1;
     text-align: center;
-    border: 1.5px solid var(--primary-green); /* Làm viền đậm hơn một chút */
+    border: 1.5px solid var(--primary-green);
     color: var(--primary-green);
     padding: 10px;
     border-radius: 8px;
     text-decoration: none;
     font-weight: 600;
-    transition: all 0.3s ease; /* Chuyển động mượt mà cho mọi hiệu ứng */
+    transition: all 0.3s ease;
     background: transparent;
 }
 
     .btn-detail:hover {
-        background: var(--primary-green); /* Đổ nền xanh */
-        color: #ffffff; /* Đổi chữ thành trắng */
-        box-shadow: 0 4px 12px rgba(77, 163, 59, 0.3); /* Tỏa hào quang xanh nhẹ */
-        transform: translateY(-2px); /* Nhấc nút nổi lên 2px */
+        background: var(--primary-green);
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(77, 163, 59, 0.3);
+        transform: translateY(-2px);
     }
 
 .btn-book {
@@ -390,8 +389,8 @@ body {
 }
 
     .btn-book:hover {
-        background: #ffffff; /* Nền trắng */
-        color: var(--primary-green); /* Chữ xanh */
+        background: #ffffff;
+        color: var(--primary-green);
         box-shadow: 0 4px 12px rgba(77, 163, 59, 0.15);
         transform: translateY(-2px);
     }
@@ -588,7 +587,7 @@ body {
 .header-user-menu {
     display: flex;
     align-items: center;
-    gap: 15px; /* Giảm gap một chút để các phần tử gắn kết hơn */
+    gap: 15px;
 }
 
 .user-dropdown {
@@ -598,9 +597,9 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px; /* Thêm khoảng không xung quanh chữ */
-    border-radius: 8px; /* Bo tròn góc nền */
-    transition: all 0.3s ease; /* Chuyển động mượt mà */
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
 }
 
     .user-dropdown i {
@@ -609,18 +608,16 @@ body {
         transition: transform 0.3s ease, color 0.3s ease;
     }
 
-    /* Hiệu ứng khi di chuột vào (Hover) */
     .user-dropdown:hover {
-        color: var(--primary-green); /* Đổi màu chữ thành xanh */
-        background-color: rgba(77, 163, 59, 0.08); /* Đổ nền xanh cực nhạt */
+        color: var(--primary-green);
+        background-color: rgba(77, 163, 59, 0.08);
     }
 
         .user-dropdown:hover i {
-            color: var(--primary-green); /* Đổi màu mũi tên thành xanh */
-            transform: translateY(3px); /* Nhún mũi tên trượt xuống nhẹ */
+            color: var(--primary-green);
+            transform: translateY(3px);
         }
 
-/* Các CSS avatar giữ nguyên... */
 .user-avatar-wrap {
     display: flex;
     align-items: center;
@@ -809,7 +806,7 @@ body {
 
 /* ================= CUSTOMER MODALS (BOOKING, PAYMENT, HISTORY) ================= */
 .modal-xl {
-    width: 800px !important;
+    width: 1050px !important;
     max-width: 95%;
 }
 
@@ -818,7 +815,6 @@ body {
     max-width: 95%;
 }
 
-/* Form Đặt sân layout 2 cột */
 .booking-layout {
     display: grid;
     grid-template-columns: 1.2fr 1fr;
@@ -852,12 +848,13 @@ body {
     resize: none;
 }
 
-/* Cột Tóm tắt bên phải */
+/* ================= TÓM TẮT ĐẶT SÂN - ĐÃ ĐÓNG KHUNG & NỀN XÁM ================= */
 .booking-summary-col {
-    background: #f8f9fa;
+    background-color: #e9ecef;
     padding: 25px;
     border-radius: 15px;
-    border: 1px solid #eee;
+    border: 2px solid #adb5bd;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
 }
 
     .booking-summary-col h3 {
@@ -865,25 +862,27 @@ body {
         margin-top: 0;
         font-size: 1.3rem;
         margin-bottom: 20px;
+        color: #333;
     }
 
 .summary-line {
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     font-size: 0.95rem;
-    color: #555;
+    color: #495057;
 }
 
     .summary-line strong {
         display: block;
-        color: #333;
+        color: #212529;
         margin-top: 4px;
         font-size: 1rem;
+        font-weight: 700;
     }
 
 .summary-divider {
-    border-top: 1px solid #ddd;
-    margin: 15px 0;
+    border-top: 2px solid #ced4da;
+    margin: 18px 0;
 }
 
 .summary-total {
@@ -891,10 +890,10 @@ body {
     justify-content: space-between;
     font-weight: bold;
     font-size: 1.1rem;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    color: #212529;
 }
 
-/* Input mã giảm giá */
 .discount-row {
     display: flex;
     gap: 10px;
@@ -937,26 +936,27 @@ body {
 /* ================= GRID LỰA CHỌN KHUNG GIỜ ================= */
 .time-slot-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(3, 1fr); /* Giảm từ 4 xuống 3 cột cho rộng rãi */
+    gap: 12px; /* Tăng khoảng cách giữa các ô */
     margin-bottom: 15px;
-    max-height: 250px;
+    max-height: 280px; /* Nới chiều cao một chút để dễ cuộn */
     overflow-y: auto;
     padding: 5px;
 }
 
 .time-slot {
-    padding: 8px 5px;
+    padding: 10px 5px;
     text-align: center;
     border: 1.5px solid #ced4da;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.95rem; /* Tăng nhẹ cỡ chữ */
     font-weight: 600;
     transition: all 0.2s;
     background: #fff;
     user-select: none;
     color: var(--text-dark);
+    line-height: 1.5; /* Tạo khoảng cách dòng cho chữ (Trống) nằm đẹp ở dưới */
 }
 
     .time-slot:hover:not(.disabled) {
@@ -1051,11 +1051,22 @@ body {
     font-weight: 600;
     text-decoration: none;
 }
+
 /* ================= MODAL CHI TIẾT SÂN ================= */
+#detailModal .auth-modal {
+    min-height: 600px;
+    padding: 50px 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
 .detail-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 40px;
+    align-items: start;
 }
 
 .detail-img {
@@ -1066,11 +1077,27 @@ body {
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
-.detail-info h3 {
-    margin-top: 0;
-    color: var(--primary-green);
-    font-size: 1.8rem;
-    margin-bottom: 10px;
+.detail-basic-info {
+    margin-top: 20px;
+}
+
+    .detail-basic-info h3 {
+        margin-top: 0;
+        color: var(--primary-green);
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+    }
+
+.detail-info {
+    background-color: #e9ecef;
+    padding: 25px;
+    border-radius: 15px;
+    border: 2px solid #adb5bd;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Cố gắng giãn chiều cao để đẩy nút xuống */
 }
 
 .detail-price {
@@ -1101,10 +1128,19 @@ body {
         outline: none;
     }
 
+/* Điều chỉnh nút Đặt sân trong popup chi tiết */
+#dtBtnBook {
+    width: fit-content;
+    min-width: 200px;
+    padding: 12px 30px;
+    align-self: center;
+    margin-top: auto;
+}
+
 /* Style giờ rảnh và bận riêng cho trang chi tiết */
 .slot-busy {
-    background-color: #fee2e2 !important; /* Nền đỏ nhạt */
-    color: #dc3545 !important; /* Chữ đỏ đậm */
+    background-color: #fee2e2 !important;
+    color: #dc3545 !important;
     border-color: #fca5a5 !important;
     cursor: not-allowed;
     text-decoration: line-through;
@@ -1115,6 +1151,7 @@ body {
     color: var(--primary-green);
     border-color: #bbf7d0;
 }
+
 /* ================= PROFILE & EDIT PROFILE MODALS ================= */
 .profile-header-wrap {
     display: flex;

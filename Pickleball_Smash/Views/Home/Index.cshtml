@@ -81,8 +81,17 @@
                             Giá: @(san.GiaCoBan?.ToString("N0") ?? "0") đ/giờ
                         </div>
                         <div class="cus-court-actions">
-                            <a href="#" class="btn-detail">Xem chi tiết</a>
-                            <a href="#" class="btn-book">Đặt sân</a>
+                            <a href="#" class="btn-detail"
+                                   data-id="@san.SanID"
+                                   data-name="@san.TenSan"
+                                   data-type="@san.LoaiSan"
+                                   data-price="@(san.GiaCoBan?.ToString("N0") ?? "0")"
+                                   data-desc="@(san.MoTa ?? "")"
+                                   data-img="@(san.HinhAnhSans?.FirstOrDefault()?.DuongDanURL ?? "/Img/SanMau1.jpg")">
+                                Xem chi tiết
+                            </a>
+                            
+                           <a href="#" class="btn-book" data-id="@san.SanID">Đặt sân</a>
                         </div>
                     </div>
                 </div>
