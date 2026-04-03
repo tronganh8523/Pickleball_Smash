@@ -1030,20 +1030,39 @@ body {
     font-weight: bold;
 }
 
+/* ================= CSS THÊM MỚI CHO KHUNG CUỘN LỊCH SỬ ================= */
+
+/* Khung xám cố định chứa thanh cuộn */
+.history-table-wrapper {
+    max-height: 350px; /* Chiều cao tối đa của khung (bạn có thể tăng/giảm tùy ý) */
+    overflow-y: auto; /* Tự động hiện thanh cuộn dọc nếu danh sách dài */
+    background-color: #f8f9fa; /* Nền màu xám nhạt */
+    border: 2px solid #dee2e6; /* Viền khung xám */
+    border-radius: 10px; /* Bo góc khung */
+}
+
+/* Đảm bảo bảng bên trong full viền */
 .history-table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+    margin: 0;
 }
 
     .history-table th, .history-table td {
-        padding: 12px 10px;
+        padding: 12px 15px;
         border-bottom: 1px solid #eee;
     }
 
+    /* Hiệu ứng Sticky Header: Giữ cố định hàng tiêu đề khi cuộn xuống */
     .history-table th {
+        position: sticky;
+        top: 0; /* Ghim trên cùng */
+        background-color: #e9ecef; /* Màu xám đậm hơn chút để tách biệt với nội dung */
+        z-index: 10; /* Nổi lên trên nội dung bảng */
         font-weight: 600;
         color: #333;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Đổ bóng nhẹ phía dưới tiêu đề */
     }
 
 .status-paid {
@@ -1222,4 +1241,19 @@ body {
 
     .edit-profile-grid .auth-input:focus {
         background: #dee2e6;
+    }
+/* ================= FORM ĐĂNG KÝ ================= */
+.register-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+/* Đảm bảo input ngày tháng hiển thị đẹp */
+input[type="date"].auth-input {
+    color: #666;
+}
+
+    input[type="date"].auth-input:valid {
+        color: var(--text-dark);
     }

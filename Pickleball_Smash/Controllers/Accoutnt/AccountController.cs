@@ -44,26 +44,41 @@ namespace Pickleball_Smash.Controllers
         {
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             {
-                return Json(new { success = false, message = "Vui lòng nhập đầy đủ thông tin." });
+                return Json(new { success = false, message = "Vui lòng nhập tên đăng nhập và mật khẩu." });
             }
 
-            if (await _context.NguoiDung.AnyAsync(u => u.TenDangNhap == request.Username || u.Email == request.Username || u.SDT == request.Username))
+            // Kiểm tra trùng lặp (Username, Email, SDT)
+            if (await _context.NguoiDung.AnyAsync(u => u.TenDangNhap == request.Username))
             {
-                return Json(new { success = false, message = "Tài khoản (Email/SĐT) đã tồn tại." });
+                return Json(new { success = false, message = "Tên đăng nhập đã tồn tại." });
+            }
+            if (!string.IsNullOrWhiteSpace(request.Email) && await _context.NguoiDung.AnyAsync(u => u.Email == request.Email))
+            {
+                return Json(new { success = false, message = "Email đã được sử dụng." });
+            }
+            if (!string.IsNullOrWhiteSpace(request.Phone) && await _context.NguoiDung.AnyAsync(u => u.SDT == request.Phone))
+            {
+                return Json(new { success = false, message = "Số điện thoại đã được sử dụng." });
             }
 
+            // Tạo người dùng mới với đầy đủ thông tin
             var newUser = new NguoiDung
             {
                 TenDangNhap = request.Username,
                 MatKhau = request.Password,
                 HoTen = request.FullName,
+                Email = request.Email,
+                SDT = request.Phone,
+                GioiTinh = request.Gender,
                 VaiTro = "KhachHang",
                 NgayTao = DateTime.Now
             };
 
-            // Phân loại Username là SĐT hay Email
-            if (request.Username.All(char.IsDigit)) newUser.SDT = request.Username;
-            else newUser.Email = request.Username;
+            // Nếu người dùng có chọn Ngày sinh
+            if (DateTime.TryParse(request.Dob, out DateTime parsedDate))
+            {
+                newUser.NgaySinh = parsedDate;
+            }
 
             _context.NguoiDung.Add(newUser);
             await _context.SaveChangesAsync();
@@ -149,6 +164,10 @@ namespace Pickleball_Smash.Controllers
         {
             public string Username { get; set; }
             public string FullName { get; set; }
+            public string Email { get; set; }
+            public string Phone { get; set; }
+            public string Dob { get; set; }
+            public string Gender { get; set; }
             public string Password { get; set; }
         }
 

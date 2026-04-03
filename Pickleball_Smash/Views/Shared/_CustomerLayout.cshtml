@@ -171,20 +171,22 @@
                 <button class="btn-search-blue">Tìm kiếm</button>
             </div>
 
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th>Mã hoá đơn</th>
-                        <th>Ngày thanh toán</th>
-                        <th>Loại sân</th>
-                        <th>Khung giờ</th>
-                        <th>Tổng tiền</th>
-                        <th>Trạng thái</th>
-                    </tr>
-                </thead>
-                <tbody id="historyTableBody">
-                </tbody>
-            </table>
+            <div class="history-table-wrapper">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Mã hoá đơn</th>
+                            <th>Ngày thanh toán</th>
+                            <th>Loại sân</th>
+                            <th>Khung giờ</th>
+                            <th>Tổng tiền</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -261,30 +263,55 @@
     </div>
 
     <div id="registerModal" class="auth-modal-overlay">
-        <div class="auth-modal">
+        <div class="auth-modal" style="width: 600px; max-width: 95%;">
             <button class="auth-close" onclick="closeAuthModal()">×</button>
-            <h2 class="auth-title">Đăng ký</h2>
+            <h2 class="auth-title">Đăng ký tài khoản</h2>
 
             <div id="registerError" class="auth-api-error"></div>
 
-            <div class="auth-form-group">
-                <input type="text" id="regUsername" class="auth-input blur-validate" placeholder="Nhập email/sđt">
-                <span class="auth-error"></span>
-            </div>
-            <div class="auth-form-group">
-                <input type="text" id="regFullName" class="auth-input blur-validate" placeholder="Nhập họ và tên">
-                <span class="auth-error"></span>
-            </div>
-            <div class="auth-form-group">
-                <input type="password" id="regPassword" class="auth-input blur-validate" placeholder="Nhập mật khẩu mới">
-                <span class="auth-error"></span>
-            </div>
-            <div class="auth-form-group">
-                <input type="password" id="regConfirmPassword" class="auth-input blur-validate" placeholder="Nhập lại mật khẩu">
-                <span class="auth-error"></span>
+            <div class="register-grid">
+                <div class="auth-form-group">
+                    <input type="text" id="regUsername" class="auth-input blur-validate" placeholder="Tên đăng nhập *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="text" id="regFullName" class="auth-input blur-validate" placeholder="Họ và tên *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="email" id="regEmail" class="auth-input blur-validate" placeholder="Email *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="text" id="regPhone" class="auth-input blur-validate" placeholder="Số điện thoại *">
+                    <span class="auth-error"></span>
+                </div>
+
+                <div class="auth-form-group">
+                    <input type="date" id="regDob" class="auth-input" title="Ngày sinh">
+                </div>
+                <div class="auth-form-group">
+                    <select id="regGender" class="auth-input">
+                        <option value="">-- Chọn giới tính --</option>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                    </select>
+                </div>
+                <div class="auth-form-group">
+                    <input type="password" id="regPassword" class="auth-input blur-validate" placeholder="Mật khẩu mới *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="password" id="regConfirmPassword" class="auth-input blur-validate" placeholder="Nhập lại mật khẩu *">
+                    <span class="auth-error"></span>
+                </div>
             </div>
 
-            <button type="button" class="auth-btn-submit auth-btn-register" onclick="submitRegister()">Đăng ký</button>
+            <button type="button" class="auth-btn-submit auth-btn-register" onclick="submitRegister()" style="margin-top: 15px;">Đăng ký</button>
+
+            <div class="auth-switch-text">
+                Đã có tài khoản? <a href="javascript:void(0)" onclick="openAuthModal('login')">Đăng nhập ngay</a>
+            </div>
         </div>
     </div>
     <div id="profileModal" class="auth-modal-overlay">
@@ -313,28 +340,58 @@
         </div>
     </div>
 
-    <div id="editProfileModal" class="auth-modal-overlay">
-        <div class="auth-modal modal-md" style="width: 600px !important;">
-            <button class="auth-close" onclick="closeModal('editProfileModal')">×</button>
-            <h2 class="auth-title">Chỉnh sửa thông tin cá nhân</h2>
-            
-            <div class="edit-profile-grid" style="margin-bottom: 20px;">
-                <input type="text" id="updHoTen" class="auth-input" placeholder="Họ và tên">
-                <input type="password" id="updOldPass" class="auth-input" placeholder="Nhập mật khẩu cũ">
-                
-                <input type="email" id="updEmail" class="auth-input" placeholder="Email">
-                <input type="password" id="updNewPass" class="auth-input" placeholder="Nhập mật khẩu mới">
-                
-                <input type="text" id="updSDT" class="auth-input" placeholder="Số điện thoại">
-                <input type="password" id="updConfirmPass" class="auth-input" placeholder="Nhập lại mật khẩu mới">
-                
-                <input type="date" id="updNgaySinh" class="auth-input">
-                <select id="updGioiTinh" class="auth-input">
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                </select>
+    <div id="registerModal" class="auth-modal-overlay">
+        <div class="auth-modal" style="width: 600px; max-width: 95%;">
+            <button class="auth-close" onclick="closeAuthModal()">×</button>
+            <h2 class="auth-title">Đăng ký tài khoản</h2>
+
+            <div id="registerError" class="auth-api-error"></div>
+
+            <div class="register-grid">
+                <div class="auth-form-group">
+                    <input type="text" id="regFullName" class="auth-input blur-validate" placeholder="Họ và tên *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="email" id="regEmail" class="auth-input blur-validate" placeholder="Email *">
+                    <span class="auth-error"></span>
+                </div>
+
+                <div class="auth-form-group">
+                    <input type="text" id="regUsername" class="auth-input blur-validate" placeholder="Tên đăng nhập *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="text" id="regPhone" class="auth-input blur-validate" placeholder="Số điện thoại *">
+                    <span class="auth-error"></span>
+                </div>
+
+                <div class="auth-form-group">
+                    <input type="password" id="regPassword" class="auth-input blur-validate" placeholder="Mật khẩu *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <input type="date" id="regDob" class="auth-input" title="Ngày sinh">
+                </div>
+
+                <div class="auth-form-group">
+                    <input type="password" id="regConfirmPassword" class="auth-input blur-validate" placeholder="Nhập lại mật khẩu *">
+                    <span class="auth-error"></span>
+                </div>
+                <div class="auth-form-group">
+                    <select id="regGender" class="auth-input">
+                        <option value="">-- Chọn giới tính --</option>
+                        <option value="Nam">Nam</option>
+                        <option value="Nữ">Nữ</option>
+                    </select>
+                </div>
             </div>
-            <button class="btn-primary-blue" onclick="submitUpdateProfile()">Thay đổi</button>
+
+            <button type="button" class="auth-btn-submit auth-btn-register" onclick="submitRegister()" style="margin-top: 15px;">Đăng ký</button>
+
+            <div class="auth-switch-text">
+                Đã có tài khoản? <a href="javascript:void(0)" onclick="openAuthModal('login')">Đăng nhập ngay</a>
+            </div>
         </div>
     </div>
 
@@ -398,34 +455,60 @@
                 }
             }
 
-            async function submitRegister() {
+                        async function submitRegister() {
+                // 1. Lấy dữ liệu từ các ô input
                 const user = document.getElementById('regUsername');
                 const fname = document.getElementById('regFullName');
+                const email = document.getElementById('regEmail');
+                const phone = document.getElementById('regPhone');
+                const dob = document.getElementById('regDob');
+                const gender = document.getElementById('regGender');
                 const pass = document.getElementById('regPassword');
                 const cpass = document.getElementById('regConfirmPassword');
                 const errBox = document.getElementById('registerError');
 
-                [user, fname, pass, cpass].forEach(el => { el.focus(); el.blur(); });
-                if(!user.value.trim() || !fname.value.trim() || !pass.value.trim() || !cpass.value.trim()) return;
+                // 2. Kích hoạt thông báo lỗi nếu để trống các trường bắt buộc
+                [user, fname, email, phone, pass, cpass].forEach(el => { el.focus(); el.blur(); });
 
-                if(pass.value !== cpass.value) {
+                // Kiểm tra xem có trường bắt buộc nào bị trống không
+                if (!user.value.trim() || !fname.value.trim() || !email.value.trim() || !phone.value.trim() || !pass.value.trim() || !cpass.value.trim()) {
+                    return;
+                }
+
+                if (pass.value !== cpass.value) {
                     errBox.textContent = 'Mật khẩu xác nhận không khớp.';
                     errBox.style.display = 'block';
                     return;
                 }
 
-                const res = await fetch('/Account/Register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user.value.trim(), fullName: fname.value.trim(), password: pass.value.trim() })
-                });
-                const data = await res.json();
+                // 3. Đóng gói dữ liệu gửi lên Server
+                const payload = {
+                    TenDangNhap: user.value.trim(),
+                    HoTen: fname.value.trim(),
+                    Email: email.value.trim(),
+                    SDT: phone.value.trim(),
+                    NgaySinh: dob.value ? dob.value : null,
+                    GioiTinh: gender.value ? gender.value : null,
+                    MatKhau: pass.value.trim()
+                };
 
-                if(data.success) {
-                    alert("Đăng ký thành công! Vui lòng đăng nhập.");
-                    openAuthModal('login');
-                } else {
-                    errBox.textContent = data.message;
+                try {
+                    const res = await fetch('/Account/Register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+        
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("Đăng ký thành công! Vui lòng đăng nhập.");
+                        openAuthModal('login'); // Tự động mở form đăng nhập
+                    } else {
+                        errBox.textContent = data.message;
+                        errBox.style.display = 'block';
+                    }
+                } catch (err) {
+                    errBox.textContent = "Lỗi kết nối đến máy chủ!";
                     errBox.style.display = 'block';
                 }
             }

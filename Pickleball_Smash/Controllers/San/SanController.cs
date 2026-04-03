@@ -15,6 +15,7 @@ namespace Pickleball_Smash.Controllers
         }
 
         // Trang Danh sách sân cho Khách hàng
+        // Trang Danh sách sân cho Khách hàng
         public async Task<IActionResult> Index(string? searchQuery, string? loaiSan, string? mucGia)
         {
             var query = _context.SanPickleball
@@ -38,6 +39,32 @@ namespace Pickleball_Smash.Controllers
             }
 
             var courts = await query.ToListAsync();
+
+            // ================== LOGIC TÍNH TRẠNG THÁI ĐỘNG ==================
+            // Lấy ngày hôm nay theo định dạng DateOnly để so khớp với DB
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            foreach (var san in courts)
+            {
+                // Đếm số lượng ca đặt trong ngày hôm nay của sân (không tính các đơn đã hủy)
+                var soGioDaDat = await _context.DonDatSan
+                    .Where(d => d.SanID == san.SanID
+                             && d.NgayChoi == today
+                             && d.TrangThaiDon != "Đã hủy")
+                    .CountAsync();
+
+                // Nếu số giờ đã đặt >= 17 ca (tức là kín lịch từ 5:00 đến 22:00)
+                if (soGioDaDat >= 17)
+                {
+                    san.TrangThai = "Bận";
+                }
+                else
+                {
+                    san.TrangThai = "Trống";
+                }
+            }
+            // ================================================================
+
             return View(courts);
         }
 
