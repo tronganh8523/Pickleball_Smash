@@ -403,7 +403,7 @@
                 }
             }
 
-                        async function submitRegister() {
+             async function submitRegister() {
                 // 1. Lấy dữ liệu từ các ô input
                 const user = document.getElementById('regUsername');
                 const fname = document.getElementById('regFullName');
@@ -429,15 +429,15 @@
                     return;
                 }
 
-                // 3. Đóng gói dữ liệu gửi lên Server
+                // 3. Đóng gói dữ liệu gửi lên Server (Đã đổi sang key tiếng Anh)
                 const payload = {
-                    TenDangNhap: user.value.trim(),
-                    HoTen: fname.value.trim(),
+                    Username: user.value.trim(),
+                    FullName: fname.value.trim(),
                     Email: email.value.trim(),
-                    SDT: phone.value.trim(),
-                    NgaySinh: dob.value ? dob.value : null,
-                    GioiTinh: gender.value ? gender.value : null,
-                    MatKhau: pass.value.trim()
+                    Phone: phone.value.trim(),
+                    Dob: dob.value ? dob.value : null,
+                    Gender: gender.value ? gender.value : null,
+                    Password: pass.value.trim()
                 };
 
                 try {
