@@ -331,19 +331,77 @@ async function submitUpdateProfile() {
         NewPassword: newPass
     };
 
-    const res = await fetch('/Account/UpdateProfile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
+    try {
+        const res = await fetch('/Account/UpdateProfile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-    const result = await res.json();
-    if (result.success) {
-        alert(result.message);
-        closeModal('editProfileModal');
-        // Tải lại trang để update tên trên Header
-        window.location.reload();
-    } else {
-        alert(result.message);
+        const result = await res.json();
+        if (result.success) {
+            alert(result.message);
+            closeModal('editProfileModal');
+            window.location.reload();
+        } else {
+            alert(result.message);
+        }
+    } catch (err) {
+        alert("Có lỗi xảy ra, vui lòng thử lại sau.");
+    }
+} // <-- DẤU NGOẶC NÀY RẤT QUAN TRỌNG ĐỂ ĐÓNG HÀM UPDATE PROFILE
+
+// ================= AI CHATBOT LOGIC =================
+// Đưa logic chatbot ra ngoài cùng để nó hoạt động độc lập ngay khi tải trang
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleBtn = document.getElementById('chatbot-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleChatbot);
+    }
+});
+
+function toggleChatbot() {
+    const chatWindow = document.getElementById('chatbot-window');
+    if (chatWindow) {
+        chatWindow.style.display = chatWindow.style.display === 'none' ? 'flex' : 'none';
+    }
+}
+
+function handleChatKeyPress(e) {
+    if (e.key === 'Enter') sendChatMessage();
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    if (!message) return;
+
+    const msgBox = document.getElementById('chatbot-messages');
+
+    // Hiển thị tin nhắn của user
+    msgBox.innerHTML += `<div class="msg user-msg">${message}</div>`;
+    input.value = '';
+    msgBox.scrollTop = msgBox.scrollHeight;
+
+    // Hiển thị trạng thái đang gõ
+    const typingId = 'typing-' + Date.now();
+    msgBox.innerHTML += `<div id="${typingId}" class="msg ai-msg">Đang suy nghĩ...</div>`;
+    msgBox.scrollTop = msgBox.scrollHeight;
+
+    try {
+        const res = await fetch('/Chatbot/SendMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userMessage: message })
+        });
+
+        const data = await res.json();
+
+        // Thay thế "Đang suy nghĩ" bằng câu trả lời thật
+        document.getElementById(typingId).outerHTML = `<div class="msg ai-msg">${data.reply}</div>`;
+        msgBox.scrollTop = msgBox.scrollHeight;
+
+    } catch (err) {
+        document.getElementById(typingId).outerHTML = `<div class="msg ai-msg" style="color:red;">Lỗi kết nối. Vui lòng thử lại!</div>`;
     }
 }
