@@ -5,7 +5,6 @@ let selectedSlots = [];
 let bookedSlots = [];
 let currentDetailCourtId = null;
 
-// Hàm mở / đóng Modal dùng chung
 function openModal(id) {
     document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -16,7 +15,6 @@ function closeModal(id) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Gán sự kiện mở form Đặt Sân
     document.querySelectorAll('.btn-book').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -32,12 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // 2. Gán sự kiện cho Nút Lịch Sử trên Header
-    document.addEventListener('click', (e) => {
-        if (e.target.innerText.includes('Lịch Sử')) loadHistory();
-    });
-
-    // 3. Gán sự kiện mở form Xem Chi Tiết
     document.querySelectorAll('.btn-detail').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -59,7 +51,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // 4. Các sự kiện thay đổi Input
     const bkSan = document.getElementById('bkSan');
     const bkDate = document.getElementById('bkDate');
     const bkNote = document.getElementById('bkNote');
@@ -68,7 +59,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (bkDate) bkDate.addEventListener('change', fetchBookedSlots);
     if (bkNote) bkNote.addEventListener('input', calcTotal);
 
-    // Xử lý nút Tiến hành đặt sân từ popup Chi tiết
     const dtBtnBook = document.getElementById('dtBtnBook');
     if (dtBtnBook) {
         dtBtnBook.addEventListener('click', async () => {
@@ -80,7 +70,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 5. Phục hồi dữ liệu Đặt sân sau khi Đăng nhập
     const pendingStr = sessionStorage.getItem('pendingBooking');
     if (pendingStr && window.isLoggedIn) {
         const data = JSON.parse(pendingStr);
@@ -257,11 +246,9 @@ async function fetchDetailSlots() {
         slot.className = 'time-slot';
         if (dtBookedSlots.includes(i)) {
             slot.classList.add('slot-busy');
-            // Đổi innerText thành innerHTML và thêm <br>
             slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Bận)`;
         } else {
             slot.classList.add('slot-available');
-            // Đổi innerText thành innerHTML và thêm <br>
             slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Trống)`;
         }
         grid.appendChild(slot);
@@ -272,21 +259,16 @@ async function fetchDetailSlots() {
 async function openProfileModal() {
     if (!window.isLoggedIn) return;
 
-    // Fetch dữ liệu từ server
     const res = await fetch('/Account/GetProfile');
     if (res.ok) {
         const data = await res.json();
-        // Hiển thị lên Popup Thông tin cá nhân
         document.getElementById('lblHoTen').innerText = data.hoTen || 'Chưa cập nhật';
         document.getElementById('lblEmail').innerText = data.email || 'Chưa cập nhật';
         document.getElementById('lblSDT').innerText = data.sdt || 'Chưa cập nhật';
-        document.getElementById('lblNgaySinh').innerText = data.ngaySinh ? data.ngaySinh.split('-').reverse().join('/') : 'Chưa cập nhật';
         document.getElementById('lblGioiTinh').innerText = data.gioiTinh || 'Nam';
         document.getElementById('lblMaKH').innerText = data.maKhachHang;
 
-        // Lưu tạm data để điền vào form Edit nếu khách bấm chỉnh sửa
         window.currentProfileData = data;
-
         openModal('profileModal');
     }
 }
@@ -294,16 +276,13 @@ async function openProfileModal() {
 function openEditProfileModal() {
     closeModal('profileModal');
 
-    // Đổ dữ liệu có sẵn vào các ô input
     const data = window.currentProfileData;
     if (data) {
         document.getElementById('updHoTen').value = data.hoTen || '';
         document.getElementById('updEmail').value = data.email || '';
         document.getElementById('updSDT').value = data.sdt || '';
-        document.getElementById('updNgaySinh').value = data.ngaySinh || '';
         document.getElementById('updGioiTinh').value = data.gioiTinh || 'Nam';
 
-        // Reset password fields
         document.getElementById('updOldPass').value = '';
         document.getElementById('updNewPass').value = '';
         document.getElementById('updConfirmPass').value = '';
@@ -325,7 +304,6 @@ async function submitUpdateProfile() {
         FullName: document.getElementById('updHoTen').value,
         Email: document.getElementById('updEmail').value,
         Phone: document.getElementById('updSDT').value,
-        Dob: document.getElementById('updNgaySinh').value,
         Gender: document.getElementById('updGioiTinh').value,
         OldPassword: document.getElementById('updOldPass').value,
         NewPassword: newPass
@@ -349,26 +327,48 @@ async function submitUpdateProfile() {
     } catch (err) {
         alert("Có lỗi xảy ra, vui lòng thử lại sau.");
     }
-} // <-- DẤU NGOẶC NÀY RẤT QUAN TRỌNG ĐỂ ĐÓNG HÀM UPDATE PROFILE
+}
 
 // ================= AI CHATBOT LOGIC =================
-// Đưa logic chatbot ra ngoài cùng để nó hoạt động độc lập ngay khi tải trang
 document.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById('chatbot-toggle');
     if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleChatbot);
+    }
+
+    const msgBox = document.getElementById('chatbot-messages');
+    const chatWindow = document.getElementById('chatbot-window');
+
+    const savedChat = sessionStorage.getItem('chatHistory');
+    if (savedChat && msgBox) {
+        msgBox.innerHTML = savedChat;
+        msgBox.scrollTop = msgBox.scrollHeight;
+    }
+
+    const isChatOpen = sessionStorage.getItem('chatOpen');
+    if (isChatOpen === 'true' && chatWindow) {
+        chatWindow.style.display = 'flex';
     }
 });
 
 function toggleChatbot() {
     const chatWindow = document.getElementById('chatbot-window');
     if (chatWindow) {
-        chatWindow.style.display = chatWindow.style.display === 'none' ? 'flex' : 'none';
+        const isHidden = chatWindow.style.display === 'none';
+        chatWindow.style.display = isHidden ? 'flex' : 'none';
+        sessionStorage.setItem('chatOpen', isHidden ? 'true' : 'false');
     }
 }
 
 function handleChatKeyPress(e) {
     if (e.key === 'Enter') sendChatMessage();
+}
+
+function saveChatHistory() {
+    const msgBox = document.getElementById('chatbot-messages');
+    if (msgBox) {
+        sessionStorage.setItem('chatHistory', msgBox.innerHTML);
+    }
 }
 
 async function sendChatMessage() {
@@ -378,12 +378,11 @@ async function sendChatMessage() {
 
     const msgBox = document.getElementById('chatbot-messages');
 
-    // Hiển thị tin nhắn của user
     msgBox.innerHTML += `<div class="msg user-msg">${message}</div>`;
     input.value = '';
     msgBox.scrollTop = msgBox.scrollHeight;
+    saveChatHistory();
 
-    // Hiển thị trạng thái đang gõ
     const typingId = 'typing-' + Date.now();
     msgBox.innerHTML += `<div id="${typingId}" class="msg ai-msg">Đang suy nghĩ...</div>`;
     msgBox.scrollTop = msgBox.scrollHeight;
@@ -396,12 +395,115 @@ async function sendChatMessage() {
         });
 
         const data = await res.json();
-
-        // Thay thế "Đang suy nghĩ" bằng câu trả lời thật
         document.getElementById(typingId).outerHTML = `<div class="msg ai-msg">${data.reply}</div>`;
         msgBox.scrollTop = msgBox.scrollHeight;
+        saveChatHistory();
 
     } catch (err) {
         document.getElementById(typingId).outerHTML = `<div class="msg ai-msg" style="color:red;">Lỗi kết nối. Vui lòng thử lại!</div>`;
+        saveChatHistory();
     }
+}
+
+// ================= LOGIC LỊCH SỬ CHAT =================
+let allChatSessions = [];
+let currentChatSessions = [];
+
+function loadChatHistory() {
+    if (!window.isLoggedIn) {
+        alert("Vui lòng đăng nhập để xem lịch sử chat!");
+        return;
+    }
+
+    fetch('/Chatbot/GetChatSessions')
+        .then(res => res.json())
+        .then(data => {
+            allChatSessions = data;
+            openModal('chatHistoryModal');
+            resetChatFilters();
+        });
+}
+
+function filterAndSortChatHistory() {
+    const dateVal = document.getElementById('chatDateFilter').value;
+    const sortVal = document.getElementById('chatSortFilter').value;
+
+    if (dateVal) {
+        currentChatSessions = allChatSessions.filter(item => item.ngayGoc === dateVal);
+    } else {
+        currentChatSessions = [...allChatSessions];
+    }
+
+    if (sortVal === 'oldest') {
+        currentChatSessions.sort((a, b) => new Date(a.ngayGoc) - new Date(b.ngayGoc));
+    } else {
+        currentChatSessions.sort((a, b) => new Date(b.ngayGoc) - new Date(a.ngayGoc));
+    }
+
+    renderChatSessions();
+}
+
+function resetChatFilters() {
+    const dateFilter = document.getElementById('chatDateFilter');
+    const sortFilter = document.getElementById('chatSortFilter');
+
+    if (dateFilter) dateFilter.value = '';
+    if (sortFilter) sortFilter.value = 'newest';
+
+    filterAndSortChatHistory();
+}
+
+function renderChatSessions() {
+    const tbody = document.getElementById('chatHistoryTableBody');
+    tbody.innerHTML = '';
+
+    if (currentChatSessions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 20px;">Không tìm thấy phiên chat nào phù hợp.</td></tr>`;
+    } else {
+        currentChatSessions.forEach(item => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        Phiên ngày: <strong>${item.ngayHienThi}</strong><br>
+                        <span style="font-size: 0.85rem; color: #666;">
+                            <i class="far fa-clock"></i> ${item.thoiGianBatDau} - ${item.thoiGianKetThuc}
+                        </span>
+                    </td>
+                    <td style="vertical-align: middle;">${item.soTinNhan} tương tác</td>
+                    <td style="vertical-align: middle;">
+                        <button class="btn-primary-blue" style="padding: 5px 15px; font-size: 14px;" 
+                                onclick="openChatDetail('${item.ngayGoc}', '${item.thoiGianBatDau}', '${item.thoiGianKetThuc}')">
+                            <i class="fas fa-eye"></i> Xem nội dung
+                        </button>
+                    </td>
+                </tr>`;
+        });
+    }
+}
+
+function openChatDetail(dateString, startString, endString) {
+    fetch(`/Chatbot/GetChatDetails?date=${dateString}&start=${startString}&end=${endString}`)
+        .then(res => res.json())
+        .then(data => {
+            const contentBox = document.getElementById('chatDetailContent');
+            contentBox.innerHTML = '';
+
+            data.forEach(msg => {
+                contentBox.innerHTML += `
+                    <div class="msg user-msg" style="margin-top: 10px;">
+                        ${msg.hoi} <br>
+                        <small style="opacity: 0.7; font-size: 10px;">${msg.thoiGianGian}</small>
+                    </div>`;
+
+                contentBox.innerHTML += `
+                    <div class="msg ai-msg">
+                        ${msg.dap} <br>
+                        <small style="opacity: 0.7; font-size: 10px;">${msg.thoiGianGian}</small>
+                    </div>`;
+            });
+
+            closeModal('chatHistoryModal');
+            openModal('chatDetailModal');
+            contentBox.scrollTop = contentBox.scrollHeight;
+        });
 }

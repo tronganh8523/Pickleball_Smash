@@ -11,6 +11,21 @@
     <title>@ViewData["Title"] - Pickleball Smash</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/customer-style.css" asp-append-version="true" />
+    <style>
+        .user-dropdown.has-menu { position: relative; padding: 10px 0; }
+        .user-dropdown.has-menu .sub-menu {
+            display: none; position: absolute; top: 100%; left: -10px;
+            background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 6px; min-width: 170px; z-index: 9999; overflow: hidden;
+        }
+        .user-dropdown.has-menu:hover .sub-menu { display: block; }
+        .user-dropdown.has-menu .sub-menu a {
+            display: block; padding: 12px 16px; color: #333;
+            text-decoration: none; border-bottom: 1px solid #f1f1f1;
+            font-size: 0.95rem; transition: 0.2s; text-align: left;
+        }
+        .user-dropdown.has-menu .sub-menu a:hover { background: var(--primary-green); color: #fff; }
+    </style>
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
@@ -37,8 +52,12 @@
             @if (userId != null)
             {
                 <div class="header-user-menu">
-                    <div class="user-dropdown">
-                        Lịch Sử <i class="fas fa-chevron-down"></i>
+                    <div class="user-dropdown has-menu">
+                        <span>Lịch Sử <i class="fas fa-chevron-down"></i></span>
+                        <div class="sub-menu">
+                            <a href="javascript:void(0)" onclick="loadHistory()">Lịch sử đặt sân</a>
+                            <a href="javascript:void(0)" onclick="loadChatHistory()">Lịch sử chat AI</a>
+                        </div>
                     </div>
                     <div class="user-dropdown" onclick="openProfileModal()">
                         Tài Khoản
@@ -292,14 +311,12 @@
                     <input type="password" id="regConfirmPassword" class="auth-input blur-validate" placeholder="Nhập lại mật khẩu *">
                     <span class="auth-error"></span>
                 </div>
+                
                 <div class="auth-form-group">
                     <input type="email" id="regEmail" class="auth-input blur-validate" placeholder="Email *">
                     <span class="auth-error"></span>
                 </div>
 
-                <div class="auth-form-group">
-                    <input type="date" id="regDob" class="auth-input" title="Ngày sinh">
-                </div>
                 <div class="auth-form-group">
                     <select id="regGender" class="auth-input">
                         <option value="">-- Chọn giới tính --</option>
@@ -316,10 +333,11 @@
             </div>
         </div>
     </div>
+    
     <div id="profileModal" class="auth-modal-overlay">
         <div class="auth-modal modal-md">
             <button class="auth-close" onclick="closeModal('profileModal')">×</button>
-            <h2 class="auth-title">Thông tin cá nhân</h2>
+            <h2 class="auth-title">Thôngীকার tin cá nhân</h2>
             
             <div class="profile-header-wrap">
                 <div class="profile-avatar-large">
@@ -333,7 +351,6 @@
 
             <div class="profile-info-grid">
                 <div class="profile-info-item"><h5>Họ và tên</h5><p id="lblHoTen">...</p></div>
-                <div class="profile-info-item"><h5>Ngày sinh:</h5><p id="lblNgaySinh">...</p></div>
                 <div class="profile-info-item"><h5>Số điện thoại:</h5><p id="lblSDT">...</p></div>
                 <div class="profile-info-item"><h5>Email:</h5><p id="lblEmail">...</p></div>
                 <div class="profile-info-item"><h5>Mã khách hàng</h5><p id="lblMaKH">...</p></div>
@@ -377,7 +394,7 @@
                     }
                 });
             });
-
+            
             async function submitLogin() {
                 const user = document.getElementById('loginUsername');
                 const pass = document.getElementById('loginPassword');
@@ -387,12 +404,13 @@
                 user.focus(); user.blur();
                 pass.focus(); pass.blur();
                 if(!user.value.trim() || !pass.value.trim()) return;
-
+                
                 const res = await fetch('/Account/Login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: user.value.trim(), password: pass.value.trim(), role: role })
                 });
+                
                 const data = await res.json();
 
                 if(data.success) {
@@ -409,15 +427,14 @@
                 const fname = document.getElementById('regFullName');
                 const email = document.getElementById('regEmail');
                 const phone = document.getElementById('regPhone');
-                const dob = document.getElementById('regDob');
                 const gender = document.getElementById('regGender');
                 const pass = document.getElementById('regPassword');
                 const cpass = document.getElementById('regConfirmPassword');
                 const errBox = document.getElementById('registerError');
-
+                
                 // 2. Kích hoạt thông báo lỗi nếu để trống các trường bắt buộc
                 [user, email, phone, pass, cpass].forEach(el => { el.focus(); el.blur(); });
-
+                
                 // Kiểm tra xem có trường bắt buộc nào bị trống không
                 if (!user.value.trim() || !email.value.trim() || !phone.value.trim() || !pass.value.trim() || !cpass.value.trim()) {
                     return;
@@ -429,28 +446,27 @@
                     return;
                 }
 
-                // 3. Đóng gói dữ liệu gửi lên Server (Đã đổi sang key tiếng Anh)
+                // 3. Đóng gói dữ liệu gửi lên Server
                 const payload = {
                     Username: user.value.trim(),
                     FullName: fname.value.trim(),
                     Email: email.value.trim(),
                     Phone: phone.value.trim(),
-                    Dob: dob.value ? dob.value : null,
                     Gender: gender.value ? gender.value : null,
                     Password: pass.value.trim()
                 };
-
+                
                 try {
                     const res = await fetch('/Account/Register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-        
+                    
                     const data = await res.json();
                     if (data.success) {
                         alert("Đăng ký thành công! Vui lòng đăng nhập.");
-                        openAuthModal('login'); // Tự động mở form đăng nhập
+                        openAuthModal('login'); 
                     } else {
                         errBox.textContent = data.message;
                         errBox.style.display = 'block';
@@ -460,98 +476,10 @@
                     errBox.style.display = 'block';
                 }
             }
+            
             // ================= HÀM ĐÓNG MODAL CHUNG =================
             function closeModal(id) {
                 document.getElementById(id).classList.remove('active');
-            }
-
-            // ================= XỬ LÝ THÔNG TIN CÁ NHÂN =================
-            async function openProfileModal() {
-                // Gọi API lấy thông tin
-                try {
-                    const res = await fetch('/Account/GetProfile');
-                    if(res.ok) {
-                        const data = await res.json();
-                        // Hiển thị lên Popup
-                        document.getElementById('lblHoTen').innerText = data.hoTen || 'Chưa cập nhật';
-                        document.getElementById('lblEmail').innerText = data.email || 'Chưa cập nhật';
-                        document.getElementById('lblSDT').innerText = data.sdt || 'Chưa cập nhật';
-                        document.getElementById('lblNgaySinh').innerText = data.ngaySinh ? data.ngaySinh.split('-').reverse().join('/') : 'Chưa cập nhật';
-                        document.getElementById('lblGioiTinh').innerText = data.gioiTinh || 'Nam';
-                        document.getElementById('lblMaKH').innerText = data.maKhachHang;
-
-                        // Lưu tạm data để dùng cho form Edit
-                        window.currentProfileData = data;
-                        
-                        // Ẩn tất cả các popup khác và mở popup profile
-                        document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
-                        document.getElementById('profileModal').classList.add('active');
-                    } else {
-                        alert("Vui lòng đăng nhập để xem thông tin!");
-                    }
-                } catch(err) {
-                    console.log("Lỗi tải thông tin:", err);
-                }
-            }
-
-            function openEditProfileModal() {
-                closeModal('profileModal');
-                
-                // Đổ dữ liệu có sẵn vào các ô input
-                const data = window.currentProfileData;
-                if(data) {
-                    document.getElementById('updHoTen').value = data.hoTen || '';
-                    document.getElementById('updEmail').value = data.email || '';
-                    document.getElementById('updSDT').value = data.sdt || '';
-                    document.getElementById('updNgaySinh').value = data.ngaySinh || '';
-                    document.getElementById('updGioiTinh').value = data.gioiTinh || 'Nam';
-                    
-                    // Xóa trắng ô mật khẩu
-                    document.getElementById('updOldPass').value = '';
-                    document.getElementById('updNewPass').value = '';
-                    document.getElementById('updConfirmPass').value = '';
-                }
-                
-                document.getElementById('editProfileModal').classList.add('active');
-            }
-
-            async function submitUpdateProfile() {
-                const newPass = document.getElementById('updNewPass').value;
-                const confirmPass = document.getElementById('updConfirmPass').value;
-
-                if (newPass && newPass !== confirmPass) {
-                    alert("Mật khẩu xác nhận không khớp!");
-                    return;
-                }
-
-                const payload = {
-                    FullName: document.getElementById('updHoTen').value,
-                    Email: document.getElementById('updEmail').value,
-                    Phone: document.getElementById('updSDT').value,
-                    Dob: document.getElementById('updNgaySinh').value,
-                    Gender: document.getElementById('updGioiTinh').value,
-                    OldPassword: document.getElementById('updOldPass').value,
-                    NewPassword: newPass
-                };
-
-                try {
-                    const res = await fetch('/Account/UpdateProfile', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const result = await res.json();
-                    if(result.success) {
-                        alert(result.message);
-                        closeModal('editProfileModal');
-                        window.location.reload(); // Tải lại trang để cập nhật tên
-                    } else {
-                        alert(result.message);
-                    }
-                } catch(err) {
-                    alert("Có lỗi xảy ra, vui lòng thử lại sau.");
-                }
             }
     </script>
     <script>
@@ -559,6 +487,7 @@
     </script>
     <script src="~/js/customer-booking.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    
     <button id="chatbot-toggle" class="chatbot-toggle-btn">
         <i class="fas fa-comments"></i>
     </button>
@@ -568,12 +497,60 @@
             <h4><i class="fas fa-robot"></i> Trợ lý Pickleball</h4>
             <button onclick="toggleChatbot()" style="background:none; border:none; color:white; cursor:pointer;">✖</button>
         </div>
+        
         <div id="chatbot-messages" class="chatbot-messages">
             <div class="msg ai-msg">Chào bạn! Tôi có thể giúp gì cho việc đặt sân Pickleball hôm nay?</div>
         </div>
         <div class="chatbot-input-area">
             <input type="text" id="chatInput" placeholder="Nhập câu hỏi của bạn..." onkeypress="handleChatKeyPress(event)" />
             <button onclick="sendChatMessage()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+    
+    <div id="chatHistoryModal" class="auth-modal-overlay">
+        <div class="auth-modal modal-xl">
+            <button class="auth-close" onclick="closeModal('chatHistoryModal')">×</button>
+            <h2 class="auth-title" style="text-align: left;">Lịch sử Chat AI</h2>
+            
+            <div class="history-filters" style="margin-bottom: 15px; display: flex; justify-content: flex-end; gap: 15px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center;">
+                    <label style="margin-right: 10px; font-weight: bold;">Chọn ngày:</label>
+                    <input type="date" id="chatDateFilter" class="form-control" style="width: 150px; padding: 5px;" onchange="filterAndSortChatHistory()">
+                </div>
+
+                <div style="display: flex; align-items: center;">
+                    <label style="margin-right: 10px; font-weight: bold;">Sắp xếp:</label>
+                    <select id="chatSortFilter" class="form-control" style="width: 200px; padding: 5px;" onchange="filterAndSortChatHistory()">
+                        <option value="newest">Mới nhất đến Cũ nhất</option>
+                        <option value="oldest">Cũ nhất đến Mới nhất</option>
+                    </select>
+                </div>
+                
+                <button class="btn-outline" style="padding: 5px 15px;" onclick="resetChatFilters()">Xóa bộ lọc</button>
+            </div>
+
+            <div class="history-table-wrapper">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Ngày Trò Chuyện (Phiên)</th>
+                            <th>Số lượng tin nhắn</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chatHistoryTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="chatDetailModal" class="auth-modal-overlay">
+        <div class="auth-modal modal-md">
+            <button class="auth-close" onclick="closeModal('chatDetailModal')">×</button>
+            <h2 class="auth-title">Nội dung cuộc trò chuyện</h2>
+            <div id="chatDetailContent" class="chatbot-messages" style="display: block; height: 500px; background: #f5f7f9; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd;">
+                </div>
         </div>
     </div>
 </body>

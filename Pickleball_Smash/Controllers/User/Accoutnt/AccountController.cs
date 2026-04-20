@@ -61,7 +61,7 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
                 return Json(new { success = false, message = "Số điện thoại đã được sử dụng." });
             }
 
-            // Tạo người dùng mới với đầy đủ thông tin
+            // Tạo người dùng mới
             var newUser = new NguoiDung
             {
                 TenDangNhap = request.Username,
@@ -73,12 +73,6 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
                 VaiTro = "KhachHang",
                 NgayTao = DateTime.Now
             };
-
-            // Nếu người dùng có chọn Ngày sinh
-            if (DateTime.TryParse(request.Dob, out DateTime parsedDate))
-            {
-                newUser.NgaySinh = parsedDate;
-            }
 
             _context.NguoiDung.Add(newUser);
             await _context.SaveChangesAsync();
@@ -109,8 +103,6 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
                 hoTen = user.HoTen,
                 email = user.Email,
                 sdt = user.SDT,
-                // Kiểm tra xem bảng NguoiDung của bạn có cột NgaySinh và GioiTinh chưa, nếu chưa có hãy thêm vào nhé
-                ngaySinh = user.NgaySinh?.ToString("yyyy-MM-dd"),
                 gioiTinh = user.GioiTinh ?? "Nam",
                 maKhachHang = "ID" + user.NguoiDungID.ToString("D4")
             });
@@ -140,10 +132,6 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             user.Email = request.Email;
             user.SDT = request.Phone;
             user.GioiTinh = request.Gender;
-            if (DateTime.TryParse(request.Dob, out DateTime parsedDate))
-            {
-                user.NgaySinh = parsedDate; // Hoặc DateOnly tùy cấu trúc DB của bạn
-            }
 
             await _context.SaveChangesAsync();
 
@@ -166,7 +154,6 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             public string? FullName { get; set; }
             public string? Email { get; set; }
             public string? Phone { get; set; }
-            public string? Dob { get; set; }
             public string? Gender { get; set; }
             public string Password { get; set; } = string.Empty;
         }
@@ -176,7 +163,6 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             public string? FullName { get; set; }
             public string? Email { get; set; }
             public string? Phone { get; set; }
-            public string? Dob { get; set; }
             public string? Gender { get; set; }
             public string? OldPassword { get; set; }
             public string? NewPassword { get; set; }
