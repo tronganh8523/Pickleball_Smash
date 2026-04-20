@@ -17,10 +17,7 @@ namespace Pickleball_Smash.Controllers
 
         public async Task<IActionResult> History(int? sanId, string? khungGio, string? ngayTao, string? trangThai)
         {
-            if (!HasManagerAccess())
-            {
-                return Forbid();
-            }
+            if (!HasManagerAccess()) return Forbid();
 
             var historyStatuses = new[] { "Hoàn thành", "Đã hủy", "Thất bại" };
 
@@ -40,23 +37,15 @@ namespace Pickleball_Smash.Controllers
                 .Where(x => x.Id > 0)
                 .DistinctBy(x => x.Id)
                 .OrderBy(x => x.TenSan)
-                .Select(x => new SelectListItem
-                {
-                    Value = x.Id.ToString(),
-                    Text = x.TenSan
-                })
+                .Select(x => new SelectListItem { Value = x.Id.ToString(), Text = x.TenSan })
                 .ToList();
 
             var khungGioOptions = allHistory
                 .Select(FormatBookingTimeRange)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => !string.IsNullOrWhiteSpace(x) && x != "--:--")
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(x => x)
-                .Select(label => new SelectListItem
-                {
-                    Value = label,
-                    Text = label
-                })
+                .Select(label => new SelectListItem { Value = label, Text = label })
                 .ToList();
 
             var trangThaiOptions = allHistory
@@ -64,34 +53,22 @@ namespace Pickleball_Smash.Controllers
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(x => x)
-                .Select(x => new SelectListItem
-                {
-                    Value = x,
-                    Text = x
-                })
+                .Select(x => new SelectListItem { Value = x, Text = x })
                 .ToList();
 
             var filtered = allHistory.AsEnumerable();
 
             if (sanId.HasValue && sanId.Value > 0)
-            {
                 filtered = filtered.Where(d => d.SanID == sanId.Value);
-            }
 
             if (!string.IsNullOrWhiteSpace(khungGio))
-            {
                 filtered = filtered.Where(d => string.Equals(FormatBookingTimeRange(d), khungGio.Trim(), StringComparison.OrdinalIgnoreCase));
-            }
 
             if (!string.IsNullOrWhiteSpace(ngayTao) && DateOnly.TryParse(ngayTao, out var selectedNgayTao))
-            {
                 filtered = filtered.Where(d => d.NgayTao.HasValue && DateOnly.FromDateTime(d.NgayTao.Value) == selectedNgayTao);
-            }
 
             if (!string.IsNullOrWhiteSpace(trangThai))
-            {
                 filtered = filtered.Where(d => string.Equals(NormalizeStatus(d.TrangThaiDon), trangThai.Trim(), StringComparison.OrdinalIgnoreCase));
-            }
 
             ViewBag.SanOptions = (object)sanOptions;
             ViewBag.KhungGioOptions = (object)khungGioOptions;
@@ -107,10 +84,7 @@ namespace Pickleball_Smash.Controllers
         [HttpGet]
         public async Task<IActionResult> HistoryDetail(int id)
         {
-            if (!HasManagerAccess())
-            {
-                return Forbid();
-            }
+            if (!HasManagerAccess()) return Forbid();
 
             var donDat = await _context.DonDatSan
                 .AsNoTracking()
@@ -120,10 +94,7 @@ namespace Pickleball_Smash.Controllers
                 .Include(d => d.ThanhToans)
                 .FirstOrDefaultAsync(d => d.DonDatSanID == id);
 
-            if (donDat == null)
-            {
-                return NotFound(new { success = false, message = "Không tìm thấy đơn lịch sử." });
-            }
+            if (donDat == null) return NotFound(new { success = false, message = "Không tìm thấy đơn lịch sử." });
 
             var payments = (donDat.ThanhToans ?? Enumerable.Empty<ThanhToan>())
                 .OrderByDescending(x => x.NgayThanhToan)
@@ -164,28 +135,37 @@ namespace Pickleball_Smash.Controllers
         private bool HasManagerAccess()
         {
             var role = HttpContext.Session.GetString("VaiTro");
-            if (string.IsNullOrWhiteSpace(role))
-            {
-                return true;
-            }
-
-            return role.Equals("Manager", StringComparison.OrdinalIgnoreCase)
-                || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(role)) return true;
+            return role.Equals("Manager", StringComparison.OrdinalIgnoreCase) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string FormatBookingTimeRange(DonDatSan booking)
+        public static string FormatBookingTimeRange(DonDatSan booking)
         {
-            var start = booking.ThoiGianBatDau.HasValue
-                ? booking.ThoiGianBatDau.Value.ToString("HH\\:mm")
-                : "--:--";
+            if (string.IsNullOrEmpty(booking.KhungGio)) return "--:--";
 
-            var end = booking.ThoiGianKetThuc.HasValue
-                ? booking.ThoiGianKetThuc.Value == TimeOnly.MinValue
-                    ? "24:00"
-                    : booking.ThoiGianKetThuc.Value.ToString("HH\\:mm")
-                : "--:--";
+            var parts = booking.KhungGio.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return "--:--";
 
-            return $"{start} - {end}";
+            var hours = parts.Select(p => int.TryParse(p.Trim(), out var h) ? h : -1).Where(h => h != -1).OrderBy(h => h).ToList();
+            if (!hours.Any()) return "--:--";
+
+            var result = new List<string>();
+            int start = hours[0];
+            int end = hours[0] + 1;
+
+            for (int i = 1; i < hours.Count; i++)
+            {
+                if (hours[i] == end) end = hours[i] + 1;
+                else
+                {
+                    result.Add($"{start:D2}:00 - {end:D2}:00");
+                    start = hours[i];
+                    end = hours[i] + 1;
+                }
+            }
+            result.Add($"{start:D2}:00 - {end:D2}:00");
+
+            return string.Join(", ", result);
         }
 
         private static string NormalizeStatus(string? status)

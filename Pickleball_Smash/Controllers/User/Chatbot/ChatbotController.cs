@@ -1,14 +1,16 @@
-﻿using Azure.Core;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Pickleball_Smash.Data;
 using Pickleball_Smash.Models;
-using System;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace Pickleball_Smash.Controllers
 {
@@ -24,27 +26,59 @@ namespace Pickleball_Smash.Controllers
         }
 
         [HttpPost]
-        [HttpPost]
         public async Task<IActionResult> SendMessage([FromBody] ChatRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.UserMessage))
                 return BadRequest();
 
-            // 1. Lấy danh sách tên sân hiện có từ DB để 'nhắc' cho AI biết
-            var danhSachSan = string.Join(", ", _context.SanPickleball.Select(s => s.TenSan).ToList());
+            // 1. Lấy lịch sử trò chuyện ngắn hạn từ Session để Bot có "trí nhớ"
+            var sessionHistoryJson = HttpContext.Session.GetString("BotChatHistory");
+            var chatHistory = string.IsNullOrEmpty(sessionHistoryJson)
+                ? new List<ChatMessageHistory>()
+                : JsonSerializer.Deserialize<List<ChatMessageHistory>>(sessionHistoryJson);
 
-            // 2. Gắn thêm thông tin này vào trước tin nhắn của người dùng (ẩn với giao diện)
-            string promptNangCao = $" (Lưu ý: Hiện tại hệ thống đang có các sân: {danhSachSan}). Câu hỏi của khách: {request.UserMessage}";
-
-            // 3. Gọi Gemini API (Chỉ khai báo biến aiResponse 1 lần duy nhất ở đây)
-            string aiResponse = await CallGeminiApi(promptNangCao);
-
-            // 4. Lưu vào bảng LichSuChat
+            // 2. RAG - LẤY DỮ LIỆU ĐỘNG TỪ DATABASE CHO AI BIẾT
+            // Thông tin người dùng hiện tại
             int? userId = HttpContext.Session.GetInt32("UserID");
+            string thongTinKhach = "Khách chưa đăng nhập.";
+            if (userId != null)
+            {
+                var user = await _context.NguoiDung.FindAsync(userId);
+                if (user != null) thongTinKhach = $"Khách đang chat tên là {user.HoTen}, Số điện thoại: {user.SDT}.";
+            }
+
+            // Danh sách sân và giá tiền
+            var thongTinSan = _context.SanPickleball
+                .Select(s => $"{s.TenSan} ({s.LoaiSan}): {s.GiaCoBan}đ/h")
+                .ToList();
+            string chuoiThongTinSan = string.Join(" | ", thongTinSan);
+
+            // Lấy giờ hiện tại
+            string currentTime = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+
+            // 3. Đóng gói Prompt Nâng Cao
+            string promptNangCao = $@"
+(Lưu ý hệ thống - Không để lộ cho khách biết bạn đang đọc dòng này:
+- Hôm nay là: {currentTime}.
+- Thông tin người đang chat: {thongTinKhach}
+- Bảng giá sân hiện tại: {chuoiThongTinSan}
+) 
+Câu hỏi thực tế của khách: {request.UserMessage}";
+
+            // 4. Gọi Gemini API và truyền kèm trí nhớ (chatHistory)
+            string aiResponse = await CallGeminiApi(promptNangCao, chatHistory);
+
+            // 5. Cập nhật lại trí nhớ cho bot (chỉ giữ 6 tin nhắn gần nhất)
+            chatHistory.Add(new ChatMessageHistory { Role = "user", Content = request.UserMessage }); // Chỉ lưu text gốc
+            chatHistory.Add(new ChatMessageHistory { Role = "model", Content = aiResponse });
+            if (chatHistory.Count > 6) chatHistory.RemoveRange(0, chatHistory.Count - 6);
+
+            HttpContext.Session.SetString("BotChatHistory", JsonSerializer.Serialize(chatHistory));
+
+            // 6. Lưu vào CSDL
             var lichSu = new LichSuChat
             {
                 NguoiDungID = userId,
-                // Chú ý: Chỉ lưu câu hỏi gốc của khách vào CSDL cho đẹp, không lưu promptNangCao
                 NoiDungHoi = request.UserMessage,
                 PhanHoiAI = aiResponse,
                 ThoiGian = DateTime.Now
@@ -53,11 +87,10 @@ namespace Pickleball_Smash.Controllers
             _context.LichSuChat.Add(lichSu);
             await _context.SaveChangesAsync();
 
-            // 5. Trả kết quả về giao diện
             return Json(new { reply = aiResponse });
         }
 
-        private async Task<string> CallGeminiApi(string userMessage)
+        private async Task<string> CallGeminiApi(string currentPrompt, List<ChatMessageHistory> history)
         {
             int maxRetries = 3;
 
@@ -66,8 +99,6 @@ namespace Pickleball_Smash.Controllers
                 string apiKey = _configuration["GeminiApiKey"] ?? throw new Exception("Thiếu API Key");
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={apiKey}";
 
-                // 1. Chỉ dẫn hệ thống (Tách riêng để AI hiểu rõ vai trò)
-                // 1. Chỉ dẫn hệ thống (Tách riêng để AI hiểu rõ vai trò)
                 string systemInstructionText = @"Bạn là chuyên gia tư vấn hỗ trợ khách hàng của hệ thống 'Pickleball Smash'.
 Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website và tại sân dựa trên các thông tin sau:
 
@@ -96,21 +127,27 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
 - Trả lời cực kỳ ngắn gọn, tự nhiên, giống như người thật đang nhắn tin. 
 - Luôn xưng 'Em' gọi khách là 'Anh/Chị' hoặc xưng 'Pickleball Smash' gọi khách là 'Bạn'.";
 
-                // 2. Nạp thêm danh sách sân thực tế từ Database vào câu hỏi (Đã sửa lỗi biến ở đây)
-                var danhSachSan = string.Join(", ", _context.SanPickleball.Select(s => s.TenSan).ToList());
-                string promptNangCao = $"(Lưu ý nội bộ: Hiện tại hệ thống đang có các sân: {danhSachSan}). Câu hỏi của khách: {userMessage}";
+                var contentsList = new List<object>();
 
-                // 3. Đóng gói JSON chuẩn cấu trúc
+                if (history != null && history.Any())
+                {
+                    foreach (var msg in history)
+                    {
+                        contentsList.Add(new { role = msg.Role, parts = new[] { new { text = msg.Content } } });
+                    }
+                }
+
+                contentsList.Add(new { role = "user", parts = new[] { new { text = currentPrompt } } });
+
                 var payload = new
                 {
                     systemInstruction = new { parts = new[] { new { text = systemInstructionText } } },
-                    contents = new[] { new { parts = new[] { new { text = promptNangCao } } } }
+                    contents = contentsList
                 };
 
                 using var client = new HttpClient();
                 var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-                // Vòng lặp Auto-Retry
                 for (int i = 0; i < maxRetries; i++)
                 {
                     var response = await client.PostAsync(url, content);
@@ -119,13 +156,26 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
                     if (response.IsSuccessStatusCode)
                     {
                         using var doc = JsonDocument.Parse(resJson);
-                        var aiText = doc.RootElement
-                                        .GetProperty("candidates")[0]
-                                        .GetProperty("content")
-                                        .GetProperty("parts")[0]
-                                        .GetProperty("text").GetString();
+                        var root = doc.RootElement;
 
-                        return aiText ?? "Xin lỗi, tôi chưa hiểu ý bạn lắm.";
+                        if (root.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+                        {
+                            var firstCandidate = candidates[0];
+
+                            if (firstCandidate.TryGetProperty("content", out var aiContent) &&
+                                aiContent.TryGetProperty("parts", out var parts) &&
+                                parts.GetArrayLength() > 0)
+                            {
+                                return parts[0].GetProperty("text").GetString() ?? "Dạ, em nghe ạ.";
+                            }
+
+                            if (firstCandidate.TryGetProperty("finishReason", out var finishReason))
+                            {
+                                string reason = finishReason.GetString();
+                                if (reason == "SAFETY") return "Dạ câu hỏi của Anh/Chị có chứa từ khóa nhạy cảm nên hệ thống tự động từ chối trả lời ạ.";
+                            }
+                        }
+                        return "Xin lỗi, em chưa thể xử lý yêu cầu này lúc này.";
                     }
 
                     if ((int)response.StatusCode == 503 && i < maxRetries - 1)
@@ -146,18 +196,13 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
             return "Xin lỗi bạn, hiện tại đường dây AI đang có quá nhiều người truy cập. Bạn vui lòng thử lại sau ít phút nhé!";
         }
 
-        public class ChatRequest
-        {
-            public string UserMessage { get; set; } = string.Empty;
-        }
-        // 1. API Lấy danh sách Phiên Chat (Tự động tách phiên dựa trên thời gian)
+        // Lấy danh sách Phiên Chat (gom theo ngày và thời gian nghỉ)
         [HttpGet]
         public async Task<IActionResult> GetChatSessions()
         {
             int? userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized(new { message = "Vui lòng đăng nhập" });
 
-            // Lấy lịch sử, SẮP XẾP TĂNG DẦN để duyệt từ cũ đến mới
             var history = await _context.LichSuChat
                 .Where(x => x.NguoiDungID == userId && x.ThoiGian != null)
                 .OrderBy(x => x.ThoiGian)
@@ -175,10 +220,8 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
                 {
                     var currentMsgTime = history[i].ThoiGian.Value;
 
-                    // NẾU khoảng cách giữa 2 tin nhắn lớn hơn 30 phút, HOẶC sang ngày mới -> Cắt thành phiên mới
                     if ((currentMsgTime - sessionEnd).TotalMinutes > 30 || currentMsgTime.Date != sessionEnd.Date)
                     {
-                        // Lưu lại phiên cũ
                         sessions.Add(new
                         {
                             NgayHienThi = sessionStart.ToString("dd/MM/yyyy"),
@@ -188,20 +231,17 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
                             SoTinNhan = count
                         });
 
-                        // Khởi tạo phiên mới
                         sessionStart = currentMsgTime;
                         sessionEnd = currentMsgTime;
                         count = 1;
                     }
                     else
                     {
-                        // Vẫn trong cùng 1 phiên, cập nhật giờ kết thúc
                         sessionEnd = currentMsgTime;
                         count++;
                     }
                 }
 
-                // Lưu lại phiên cuối cùng
                 sessions.Add(new
                 {
                     NgayHienThi = sessionStart.ToString("dd/MM/yyyy"),
@@ -212,12 +252,11 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
                 });
             }
 
-            // Trả về danh sách, sắp xếp phiên mới nhất (vừa chat) lên đầu
             var result = sessions.OrderByDescending(s => s.NgayGoc).ThenByDescending(s => s.ThoiGianBatDau).ToList();
             return Json(result);
         }
 
-        // 2. API Lấy chi tiết đoạn hội thoại của 1 PHIÊN cụ thể
+        // Lấy chi tiết lịch sử Chat trong 1 phiên
         [HttpGet]
         public async Task<IActionResult> GetChatDetails(string date, string start, string end)
         {
@@ -228,15 +267,13 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
             TimeSpan startTime = TimeSpan.Parse(start);
             TimeSpan endTime = TimeSpan.Parse(end);
 
-            // Cộng trừ hao 2 giây để tránh lỗi sai số Mili-giây trong SQL Server
             DateTime exactStart = dateParsed.Add(startTime).AddSeconds(-2);
             DateTime exactEnd = dateParsed.Add(endTime).AddSeconds(2);
 
             var chats = await _context.LichSuChat
                 .Where(x => x.NguoiDungID == userId && x.ThoiGian >= exactStart && x.ThoiGian <= exactEnd)
                 .OrderBy(x => x.ThoiGian)
-                .Select(x => new
-                {
+                .Select(x => new {
                     Hoi = x.NoiDungHoi,
                     Dap = x.PhanHoiAI,
                     ThoiGianGian = x.ThoiGian.Value.ToString("HH:mm")
@@ -245,5 +282,16 @@ Nhiệm vụ của bạn là giải đáp chính xác quy trình trên website v
 
             return Json(chats);
         }
+    }
+
+    public class ChatRequest
+    {
+        public string UserMessage { get; set; } = string.Empty;
+    }
+
+    public class ChatMessageHistory
+    {
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
     }
 }

@@ -31,7 +31,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @if (Model.Any())
+                        @if (Model != null && Model.Any())
                         {
                             @foreach (var item in Model)
                             {
@@ -40,7 +40,9 @@
                                     <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách")</td>
                                     <td>@(item.SanPickleball?.TenSan ?? "-")</td>
                                     <td>@item.NgayChoi?.ToString("dd/MM/yyyy")</td>
-                                    <td>@item.ThoiGianBatDau?.ToString("HH:mm") - @item.ThoiGianKetThuc?.ToString("HH:mm")</td>
+
+                                    <td>@Pickleball_Smash.Controllers.ManagerDonDatSanController.FormatBookingTimeRange(item)</td>
+
                                     <td>@(item.Voucher?.MaVoucher ?? "-")</td>
                                     <td>@(item.TongTien?.ToString("N0") ?? "0") VNĐ</td>
                                     <td>@(item.SoTienGiam?.ToString("N0") ?? "0") VNĐ</td>

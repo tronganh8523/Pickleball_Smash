@@ -110,11 +110,12 @@
             &copy; @DateTime.Now.Year Pickleball Smash. All rights reserved.
         </div>
     </footer>
+
     <div id="bookingModal" class="auth-modal-overlay">
         <div class="auth-modal modal-xl">
             <button class="auth-close" onclick="closeModal('bookingModal')">×</button>
             <h2 class="auth-title" style="text-align: left; margin-bottom: 25px;">Đặt sân</h2>
-        
+
             <div class="booking-layout">
                 <div class="booking-form-col">
                     <label>Ngày đặt</label>
@@ -143,15 +144,15 @@
                     <span class="summary-line">Loại Sân: <strong id="sumType">...</strong></span>
                     <span class="summary-line">Khung giờ: <strong id="sumTime">...</strong></span>
                     <span class="summary-line">Ghi chú: <strong id="sumNote">...</strong></span>
-                
+
                     <div class="summary-divider"></div>
                     <div class="summary-total"><span>Tổng Tiền:</span> <span id="sumTotalOrigin">0đ</span></div>
-                
+
                     <div class="discount-row">
                         <input type="text" placeholder="Mã Giảm Giá">
                         <button>Sử dụng</button>
                     </div>
-                
+
                     <div class="summary-total"><span>Thành Tiền:</span> <span id="sumTotalFinal" style="color: #dc3545;">0đ</span></div>
                     <button class="btn-primary-blue" onclick="submitBooking()">Đặt Sân</button>
                 </div>
@@ -181,7 +182,7 @@
         <div class="auth-modal modal-xl">
             <button class="auth-close" onclick="closeModal('historyModal')">×</button>
             <h2 class="auth-title" style="text-align: left;">Lịch sử thanh toán</h2>
-        
+
             <div class="history-filters">
                 <input type="date" placeholder="--Chọn ngày--">
                 <select><option>--Giờ bắt đầu--</option></select>
@@ -213,10 +214,10 @@
         <div class="auth-modal modal-xl">
             <button class="auth-close" onclick="closeModal('detailModal')">×</button>
             <div class="detail-layout">
-            
+
                 <div class="detail-left-col">
                     <img id="dtImg" src="" alt="Court Image" class="detail-img" />
-                
+
                     <div class="detail-basic-info">
                         <h3 id="dtName">Tên sân</h3>
                         <p style="color: #666; font-size: 1.1rem; margin-bottom: 10px;">
@@ -238,15 +239,16 @@
 
                     <button class="btn-primary-blue" id="dtBtnBook" style="background: var(--primary-green); margin-top: auto;">Đặt Sân</button>
                 </div>
-            
+
             </div>
         </div>
     </div>
+
     <div id="loginModal" class="auth-modal-overlay">
         <div class="auth-modal">
             <button class="auth-close" onclick="closeAuthModal()">×</button>
             <h2 class="auth-title">Đăng nhập</h2>
-            
+
             <div class="auth-role-tabs">
                 <button type="button" class="auth-role-btn active" onclick="setRole('KhachHang', this)">Khách hàng</button>
                 <button type="button" class="auth-role-btn" onclick="setRole('NhanVien', this)">Nhân viên</button>
@@ -311,7 +313,7 @@
                     <input type="password" id="regConfirmPassword" class="auth-input blur-validate" placeholder="Nhập lại mật khẩu *">
                     <span class="auth-error"></span>
                 </div>
-                
+
                 <div class="auth-form-group">
                     <input type="email" id="regEmail" class="auth-input blur-validate" placeholder="Email *">
                     <span class="auth-error"></span>
@@ -333,12 +335,12 @@
             </div>
         </div>
     </div>
-    
+
     <div id="profileModal" class="auth-modal-overlay">
         <div class="auth-modal modal-md">
             <button class="auth-close" onclick="closeModal('profileModal')">×</button>
-            <h2 class="auth-title">Thôngীকার tin cá nhân</h2>
-            
+            <h2 class="auth-title">Thông tin cá nhân</h2>
+
             <div class="profile-header-wrap">
                 <div class="profile-avatar-large">
                     <i class="fas fa-user-circle"></i>
@@ -359,135 +361,129 @@
         </div>
     </div>
 
-
     <script>
-            const loginModal = document.getElementById('loginModal');
-            const registerModal = document.getElementById('registerModal');
+        const loginModal = document.getElementById('loginModal');
+        const registerModal = document.getElementById('registerModal');
 
-            function openAuthModal(type) {
-                closeAuthModal();
-                if(type === 'login') loginModal.classList.add('active');
-                else registerModal.classList.add('active');
-            }
+        function openAuthModal(type) {
+            closeAuthModal();
+            if(type === 'login') loginModal.classList.add('active');
+            else registerModal.classList.add('active');
+        }
 
-            function closeAuthModal() {
-                loginModal.classList.remove('active');
-                registerModal.classList.remove('active');
-                document.querySelectorAll('.auth-error, .auth-api-error').forEach(el => el.style.display = 'none');
-                document.querySelectorAll('.auth-input').forEach(el => el.value = '');
-            }
+        function closeAuthModal() {
+            loginModal.classList.remove('active');
+            registerModal.classList.remove('active');
+            document.querySelectorAll('.auth-error, .auth-api-error').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.auth-input').forEach(el => el.value = '');
+        }
 
-            function setRole(role, btn) {
-                document.getElementById('loginRole').value = role;
-                document.querySelectorAll('.auth-role-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            }
+        function setRole(role, btn) {
+            document.getElementById('loginRole').value = role;
+            document.querySelectorAll('.auth-role-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
 
-            document.querySelectorAll('.blur-validate').forEach(input => {
-                input.addEventListener('blur', function() {
-                    const errSpan = this.nextElementSibling;
-                    if(!this.value.trim()) {
-                        errSpan.textContent = 'Không được để trống';
-                        errSpan.style.display = 'block';
-                    } else {
-                        errSpan.style.display = 'none';
-                    }
-                });
+        document.querySelectorAll('.blur-validate').forEach(input => {
+            input.addEventListener('blur', function() {
+                const errSpan = this.nextElementSibling;
+                if(!this.value.trim()) {
+                    errSpan.textContent = 'Không được để trống';
+                    errSpan.style.display = 'block';
+                } else {
+                    errSpan.style.display = 'none';
+                }
             });
-            
-            async function submitLogin() {
-                const user = document.getElementById('loginUsername');
-                const pass = document.getElementById('loginPassword');
-                const role = document.getElementById('loginRole').value;
-                const errBox = document.getElementById('loginError');
+        });
 
-                user.focus(); user.blur();
-                pass.focus(); pass.blur();
-                if(!user.value.trim() || !pass.value.trim()) return;
-                
-                const res = await fetch('/Account/Login', {
+        async function submitLogin() {
+            const user = document.getElementById('loginUsername');
+            const pass = document.getElementById('loginPassword');
+            const role = document.getElementById('loginRole').value;
+            const errBox = document.getElementById('loginError');
+
+            user.focus(); user.blur();
+            pass.focus(); pass.blur();
+            if(!user.value.trim() || !pass.value.trim()) return;
+
+            const res = await fetch('/Account/Login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.value.trim(), password: pass.value.trim(), role: role })
+            });
+
+            const data = await res.json();
+
+            if(data.success) {
+                window.location.reload();
+            } else {
+                errBox.textContent = data.message;
+                errBox.style.display = 'block';
+            }
+        }
+
+         async function submitRegister() {
+            const user = document.getElementById('regUsername');
+            const fname = document.getElementById('regFullName');
+            const email = document.getElementById('regEmail');
+            const phone = document.getElementById('regPhone');
+            const gender = document.getElementById('regGender');
+            const pass = document.getElementById('regPassword');
+            const cpass = document.getElementById('regConfirmPassword');
+            const errBox = document.getElementById('registerError');
+
+            [user, email, phone, pass, cpass].forEach(el => { el.focus(); el.blur(); });
+
+            if (!user.value.trim() || !email.value.trim() || !phone.value.trim() || !pass.value.trim() || !cpass.value.trim()) {
+                return;
+            }
+
+            if (pass.value !== cpass.value) {
+                errBox.textContent = 'Mật khẩu xác nhận không khớp.';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            const payload = {
+                Username: user.value.trim(),
+                FullName: fname.value.trim(),
+                Email: email.value.trim(),
+                Phone: phone.value.trim(),
+                Gender: gender.value ? gender.value : null,
+                Password: pass.value.trim()
+            };
+
+            try {
+                const res = await fetch('/Account/Register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user.value.trim(), password: pass.value.trim(), role: role })
+                    body: JSON.stringify(payload)
                 });
-                
-                const data = await res.json();
 
-                if(data.success) {
-                    window.location.reload();
+                const data = await res.json();
+                if (data.success) {
+                    alert("Đăng ký thành công! Vui lòng đăng nhập.");
+                    openAuthModal('login');
                 } else {
                     errBox.textContent = data.message;
                     errBox.style.display = 'block';
                 }
+            } catch (err) {
+                errBox.textContent = "Lỗi kết nối đến máy chủ!";
+                errBox.style.display = 'block';
             }
+        }
 
-             async function submitRegister() {
-                // 1. Lấy dữ liệu từ các ô input
-                const user = document.getElementById('regUsername');
-                const fname = document.getElementById('regFullName');
-                const email = document.getElementById('regEmail');
-                const phone = document.getElementById('regPhone');
-                const gender = document.getElementById('regGender');
-                const pass = document.getElementById('regPassword');
-                const cpass = document.getElementById('regConfirmPassword');
-                const errBox = document.getElementById('registerError');
-                
-                // 2. Kích hoạt thông báo lỗi nếu để trống các trường bắt buộc
-                [user, email, phone, pass, cpass].forEach(el => { el.focus(); el.blur(); });
-                
-                // Kiểm tra xem có trường bắt buộc nào bị trống không
-                if (!user.value.trim() || !email.value.trim() || !phone.value.trim() || !pass.value.trim() || !cpass.value.trim()) {
-                    return;
-                }
-
-                if (pass.value !== cpass.value) {
-                    errBox.textContent = 'Mật khẩu xác nhận không khớp.';
-                    errBox.style.display = 'block';
-                    return;
-                }
-
-                // 3. Đóng gói dữ liệu gửi lên Server
-                const payload = {
-                    Username: user.value.trim(),
-                    FullName: fname.value.trim(),
-                    Email: email.value.trim(),
-                    Phone: phone.value.trim(),
-                    Gender: gender.value ? gender.value : null,
-                    Password: pass.value.trim()
-                };
-                
-                try {
-                    const res = await fetch('/Account/Register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const data = await res.json();
-                    if (data.success) {
-                        alert("Đăng ký thành công! Vui lòng đăng nhập.");
-                        openAuthModal('login'); 
-                    } else {
-                        errBox.textContent = data.message;
-                        errBox.style.display = 'block';
-                    }
-                } catch (err) {
-                    errBox.textContent = "Lỗi kết nối đến máy chủ!";
-                    errBox.style.display = 'block';
-                }
-            }
-            
-            // ================= HÀM ĐÓNG MODAL CHUNG =================
-            function closeModal(id) {
-                document.getElementById(id).classList.remove('active');
-            }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
     </script>
     <script>
-            window.isLoggedIn = @(Context.Session.GetInt32("UserID") != null ? "true" : "false");
+        window.isLoggedIn = @(Context.Session.GetInt32("UserID") != null ? "true" : "false");
     </script>
     <script src="~/js/customer-booking.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
-    
+
     <button id="chatbot-toggle" class="chatbot-toggle-btn">
         <i class="fas fa-comments"></i>
     </button>
@@ -497,7 +493,7 @@
             <h4><i class="fas fa-robot"></i> Trợ lý Pickleball</h4>
             <button onclick="toggleChatbot()" style="background:none; border:none; color:white; cursor:pointer;">✖</button>
         </div>
-        
+
         <div id="chatbot-messages" class="chatbot-messages">
             <div class="msg ai-msg">Chào bạn! Tôi có thể giúp gì cho việc đặt sân Pickleball hôm nay?</div>
         </div>
@@ -506,12 +502,12 @@
             <button onclick="sendChatMessage()"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
-    
+
     <div id="chatHistoryModal" class="auth-modal-overlay">
         <div class="auth-modal modal-xl">
             <button class="auth-close" onclick="closeModal('chatHistoryModal')">×</button>
             <h2 class="auth-title" style="text-align: left;">Lịch sử Chat AI</h2>
-            
+
             <div class="history-filters" style="margin-bottom: 15px; display: flex; justify-content: flex-end; gap: 15px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center;">
                     <label style="margin-right: 10px; font-weight: bold;">Chọn ngày:</label>
@@ -525,7 +521,7 @@
                         <option value="oldest">Cũ nhất đến Mới nhất</option>
                     </select>
                 </div>
-                
+
                 <button class="btn-outline" style="padding: 5px 15px;" onclick="resetChatFilters()">Xóa bộ lọc</button>
             </div>
 
@@ -550,7 +546,7 @@
             <button class="auth-close" onclick="closeModal('chatDetailModal')">×</button>
             <h2 class="auth-title">Nội dung cuộc trò chuyện</h2>
             <div id="chatDetailContent" class="chatbot-messages" style="display: block; height: 500px; background: #f5f7f9; border-radius: 8px; margin-top: 15px; border: 1px solid #ddd;">
-                </div>
+            </div>
         </div>
     </div>
 </body>

@@ -116,9 +116,7 @@
                             <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</td>
                             <td>@(item.SanPickleball?.TenSan ?? "N/A")</td>
                             <td>
-                                @(item.ThoiGianBatDau?.ToString("HH\\:mm") ?? "--:--")
-                                -
-                                @(item.ThoiGianKetThuc.HasValue && item.ThoiGianKetThuc.Value == TimeOnly.MinValue ? "24:00" : item.ThoiGianKetThuc?.ToString("HH\\:mm") ?? "--:--")
+                                @Pickleball_Smash.Controllers.ManagerDonDatSanController.FormatBookingTimeRange(item)
                             </td>
                             <td>@((item.TongTien ?? 0).ToString("N0")) đ</td>
                             <td>

@@ -14,8 +14,6 @@ namespace Pickleball_Smash.Controllers.User.San
             _context = context;
         }
 
-        // Trang Danh sách sân cho Khách hàng
-        // Trang Danh sách sân cho Khách hàng
         public async Task<IActionResult> Index(string? searchQuery, string? loaiSan, string? mucGia)
         {
             var query = _context.SanPickleball
@@ -23,14 +21,10 @@ namespace Pickleball_Smash.Controllers.User.San
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchQuery))
-            {
                 query = query.Where(s => s.TenSan.Contains(searchQuery.Trim()));
-            }
 
             if (!string.IsNullOrWhiteSpace(loaiSan))
-            {
                 query = query.Where(s => s.LoaiSan == loaiSan);
-            }
 
             if (!string.IsNullOrWhiteSpace(mucGia))
             {
@@ -39,31 +33,26 @@ namespace Pickleball_Smash.Controllers.User.San
             }
 
             var courts = await query.ToListAsync();
-
-            // ================== LOGIC TÍNH TRẠNG THÁI ĐỘNG ==================
-            // Lấy ngày hôm nay theo định dạng DateOnly để so khớp với DB
             var today = DateOnly.FromDateTime(DateTime.Now);
 
             foreach (var san in courts)
             {
-                // Đếm số lượng ca đặt trong ngày hôm nay của sân (không tính các đơn đã hủy)
-                var soGioDaDat = await _context.DonDatSan
+                var bookings = await _context.DonDatSan
                     .Where(d => d.SanID == san.SanID
                              && d.NgayChoi == today
                              && d.TrangThaiDon != "Đã hủy")
-                    .CountAsync();
+                    .ToListAsync();
 
-                // Nếu số giờ đã đặt >= 17 ca (tức là kín lịch từ 5:00 đến 22:00)
-                if (soGioDaDat >= 17)
+                int soGioDaDat = 0;
+                foreach (var b in bookings)
                 {
-                    san.TrangThai = "Bận";
+                    if (!string.IsNullOrEmpty(b.KhungGio))
+                        soGioDaDat += b.KhungGio.Split(',').Length;
                 }
-                else
-                {
-                    san.TrangThai = "Trống";
-                }
+
+                if (soGioDaDat >= 17) san.TrangThai = "Bận";
+                else san.TrangThai = "Trống";
             }
-            // ================================================================
 
             return View(courts);
         }
@@ -73,24 +62,25 @@ namespace Pickleball_Smash.Controllers.User.San
         {
             var bookedHours = new List<int>();
 
-            // Tìm các đơn không bị hủy của sân này trong ngày được chọn
+            // LỖI 1 ĐÃ FIX: Phải tách DateOnly ra một biến riêng TRƯỚC KHI đưa vào LINQ
+            DateOnly targetDate = DateOnly.FromDateTime(date);
+
             var bookings = await _context.DonDatSan
                 .Where(b => b.SanID == sanId
-                         && b.NgayChoi == DateOnly.FromDateTime(date)
+                         && b.NgayChoi == targetDate
                          && b.TrangThaiDon != "Đã hủy")
                 .ToListAsync();
 
             foreach (var b in bookings)
             {
-                if (b.ThoiGianBatDau.HasValue && b.ThoiGianKetThuc.HasValue)
+                if (!string.IsNullOrEmpty(b.KhungGio))
                 {
-                    int start = b.ThoiGianBatDau.Value.Hour;
-                    int end = b.ThoiGianKetThuc.Value.Hour;
-                    // Đưa các giờ nằm trong khoảng thời gian đã đặt vào danh sách khóa
-                    for (int i = start; i < end; i++)
-                    {
-                        bookedHours.Add(i);
-                    }
+                    // LỖI 2 ĐÃ FIX: Dùng TryParse và Trim() để chống sập khi chuỗi có khoảng trắng
+                    var hours = b.KhungGio.Split(',')
+                                          .Select(h => int.TryParse(h.Trim(), out var val) ? val : -1)
+                                          .Where(h => h != -1)
+                                          .ToList();
+                    bookedHours.AddRange(hours);
                 }
             }
             return Json(bookedHours.Distinct());
@@ -105,34 +95,25 @@ namespace Pickleball_Smash.Controllers.User.San
             if (request.SelectedHours == null || !request.SelectedHours.Any())
                 return Json(new { success = false, message = "Vui lòng chọn ít nhất 1 khung giờ" });
 
-            List<int> bookingIds = new List<int>();
-            decimal pricePerSlot = request.TongTien / request.SelectedHours.Count;
+            string chuoiKhungGio = string.Join(",", request.SelectedHours.OrderBy(h => h));
 
-            // Tạo 1 record DonDatSan cho MỖI khung giờ 1 tiếng
-            foreach (var hour in request.SelectedHours)
+            var donDat = new DonDatSan
             {
-                var donDat = new DonDatSan
-                {
-                    NguoiDungID = userId.Value,
-                    SanID = request.SanID,
-                    NgayChoi = DateOnly.FromDateTime(request.NgayDat),
-                    ThoiGianBatDau = new TimeOnly(hour, 0),
-                    ThoiGianKetThuc = new TimeOnly(hour + 1, 0),
-                    TongTien = pricePerSlot,
-                    TrangThaiDon = "Chờ thanh toán",
-                    NgayTao = DateTime.Now
-                };
-                _context.DonDatSan.Add(donDat);
-                await _context.SaveChangesAsync();
-                bookingIds.Add(donDat.DonDatSanID);
-            }
+                NguoiDungID = userId.Value,
+                SanID = request.SanID,
+                NgayChoi = DateOnly.FromDateTime(request.NgayDat),
+                KhungGio = chuoiKhungGio,
+                TongTien = request.TongTien,
+                TrangThaiDon = "Chờ thanh toán",
+                NgayTao = DateTime.Now
+            };
 
-            // Trả về danh sách ID các đơn vừa tạo
-            return Json(new { success = true, bookingIds = bookingIds });
+            _context.DonDatSan.Add(donDat);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, bookingIds = new[] { donDat.DonDatSanID } });
         }
 
-
-        // API 2: Xác nhận thanh toán
         [HttpPost]
         public async Task<IActionResult> ConfirmPayment([FromBody] List<int> bookingIds)
         {
@@ -147,7 +128,6 @@ namespace Pickleball_Smash.Controllers.User.San
             return Json(new { success = true });
         }
 
-        // API 3: Lấy lịch sử giao dịch của user đang đăng nhập
         [HttpGet]
         public async Task<IActionResult> GetBookingHistory()
         {
@@ -158,26 +138,65 @@ namespace Pickleball_Smash.Controllers.User.San
                 .Include(d => d.SanPickleball)
                 .Where(d => d.NguoiDungID == userId && d.TrangThaiDon == "Đã thanh toán")
                 .OrderByDescending(d => d.NgayTao)
-                .Select(d => new {
-                    maHoaDon = d.DonDatSanID.ToString("D3"),
-                    ngayThanhToan = d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy") : "",
-                    loaiSan = d.SanPickleball != null ? d.SanPickleball.LoaiSan : string.Empty,
-                    khungGio = $"{d.ThoiGianBatDau:hh\\:mm} - {d.ThoiGianKetThuc:hh\\:mm}",
-                    tongTien = d.TongTien,
-                    trangThai = d.TrangThaiDon
-                })
                 .ToListAsync();
 
-            return Json(history);
+            var result = history.Select(d => new {
+                maHoaDon = d.DonDatSanID.ToString("D3"),
+                ngayThanhToan = d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy") : "",
+                loaiSan = d.SanPickleball != null ? d.SanPickleball.LoaiSan : string.Empty,
+                khungGio = FormatKhungGioHienThi(d.KhungGio),
+                tongTien = d.TongTien,
+                trangThai = d.TrangThaiDon
+            }).ToList();
+
+            return Json(result);
+        }
+
+        // =========================================================================
+        // THUẬT TOÁN GỘP CHUỖI CẢI TIẾN CHỐNG CRASH
+        // =========================================================================
+        private string FormatKhungGioHienThi(string? khungGioStr)
+        {
+            if (string.IsNullOrEmpty(khungGioStr)) return "";
+
+            var parts = khungGioStr.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            // Dùng int.TryParse để nếu chuỗi có bị lỗi định dạng thì web vẫn không sập
+            var hours = parts.Select(p => int.TryParse(p.Trim(), out var h) ? h : -1)
+                             .Where(h => h != -1)
+                             .OrderBy(h => h)
+                             .ToList();
+
+            if (!hours.Any()) return "";
+
+            var result = new List<string>();
+            int start = hours[0];
+            int end = hours[0] + 1;
+
+            for (int i = 1; i < hours.Count; i++)
+            {
+                if (hours[i] == end)
+                {
+                    end = hours[i] + 1;
+                }
+                else
+                {
+                    result.Add($"{start:D2}:00 - {end:D2}:00");
+                    start = hours[i];
+                    end = hours[i] + 1;
+                }
+            }
+            result.Add($"{start:D2}:00 - {end:D2}:00");
+
+            return string.Join(", ", result);
         }
     }
 
-    // Class nhận dữ liệu từ JS
     public class BookingRequest
     {
         public int SanID { get; set; }
         public DateTime NgayDat { get; set; }
-        public List<int> SelectedHours { get; set; } = new(); // Danh sách các giờ được chọn (ví dụ: [5, 6, 18])
+        public List<int> SelectedHours { get; set; } = new();
         public string? GhiChu { get; set; }
         public decimal TongTien { get; set; }
     }

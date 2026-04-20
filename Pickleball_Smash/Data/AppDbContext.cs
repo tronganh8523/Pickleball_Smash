@@ -118,9 +118,8 @@ namespace Pickleball_Smash.Data
             modelBuilder.Entity<DonDatSan>()
                 .Property(e => e.NgayChoi).HasColumnType("date");
             modelBuilder.Entity<DonDatSan>()
-                .Property(e => e.ThoiGianBatDau).HasColumnType("time");
-            modelBuilder.Entity<DonDatSan>()
-                .Property(e => e.ThoiGianKetThuc).HasColumnType("time");
+                // THÊM THU?C TÍNH KHUNG GI? M?I
+                .Property(e => e.KhungGio).HasColumnType("NVARCHAR(255)");
             modelBuilder.Entity<DonDatSan>()
                 .Property(e => e.TongTien).HasPrecision(18, 2);
             modelBuilder.Entity<DonDatSan>()
@@ -189,4 +188,3 @@ namespace Pickleball_Smash.Data
         }
     }
 }
-
