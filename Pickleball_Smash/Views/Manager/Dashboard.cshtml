@@ -107,26 +107,9 @@
                     <input id="bookingCourt" type="hidden" value="" />
                 </div>
 
-                <div class="form-row">
-                    <label for="bookingStart">Giờ bắt đầu</label>
-                    <select id="bookingStart" class="form-select">
-                        @for (var hour = 5; hour <= 23; hour++)
-                        {
-                            var label = $"{hour:00}:00";
-                            <option value="@label">@label</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <label for="bookingEnd">Giờ kết thúc</label>
-                    <select id="bookingEnd" class="form-select">
-                        @for (var hour = 6; hour <= 24; hour++)
-                        {
-                            var label = $"{hour:00}:00";
-                            <option value="@label">@label</option>
-                        }
-                    </select>
+                <div class="form-row form-row-full">
+                    <label>Khung giờ (Có thể chọn nhiều)</label>
+                    <div id="managerTimeSlotGrid" class="time-slot-grid"></div>
                 </div>
 
             </form>
@@ -162,8 +145,7 @@
             const bookingCustomer = document.getElementById("bookingCustomer");
             const bookingPhone = document.getElementById("bookingPhone");
             const bookingDate = document.getElementById("bookingDate");
-            const bookingStart = document.getElementById("bookingStart");
-            const bookingEnd = document.getElementById("bookingEnd");
+            const managerTimeSlotGrid = document.getElementById("managerTimeSlotGrid");
             const bookingSubmitBtn = document.getElementById("bookingSubmitBtn");
             const courtFilterForm = document.getElementById("courtFilterForm");
             const tenSanInput = document.getElementById("tenSan");
@@ -181,7 +163,8 @@
 
             let selectedCourtPrice = 0;
             let selectedCourtLoaiSan = "-";
-            let bookedRanges = [];
+            let bookedSlots = [];
+            let selectedSlots = [];
             let pricingRanges = [];
             let filterDebounceId;
             let filterAbortController = null;
@@ -324,16 +307,78 @@
                 bookingDate.value = `${now.getFullYear()}-${month}-${day}`;
             };
 
-            const parseHourValue = (value) => {
-                if (!value) return NaN;
-                const parts = value.split(":");
-                const hour = Number(parts[0]);
-                if (Number.isNaN(hour)) return NaN;
-                return hour === 24 ? 24 : hour;
+            const formatSelectedSlots = (slots) => {
+                if (!slots.length) return "-";
+
+                const sorted = slots.slice().sort((a, b) => a - b);
+                const ranges = [];
+                let start = sorted[0];
+                let end = sorted[0] + 1;
+
+                for (let i = 1; i < sorted.length; i++) {
+                    if (sorted[i] === end) {
+                        end = sorted[i] + 1;
+                    } else {
+                        ranges.push(`${String(start).padStart(2, "0")}:00 - ${String(end).padStart(2, "0")}:00`);
+                        start = sorted[i];
+                        end = sorted[i] + 1;
+                    }
+                }
+
+                ranges.push(`${String(start).padStart(2, "0")}:00 - ${String(end).padStart(2, "0")}:00`);
+                return ranges.join(", ");
             };
 
-            const hasBookingOverlap = (startHour, endHour) => {
-                return bookedRanges.some(range => startHour < range.end && endHour > range.start);
+            const getDisabledSlotsForDate = () => {
+                const today = getTodayDateString();
+                if (!bookingDate?.value || bookingDate.value !== today) return [];
+
+                const currentHour = new Date().getHours();
+                const disabled = [];
+                for (let hour = 5; hour <= currentHour; hour++) {
+                    disabled.push(hour);
+                }
+
+                return disabled;
+            };
+
+            const renderTimeSlotGrid = () => {
+                if (!managerTimeSlotGrid) return;
+
+                const disabledByDate = getDisabledSlotsForDate();
+                const disabledSet = new Set([...bookedSlots, ...disabledByDate]);
+
+                selectedSlots = selectedSlots
+                    .filter(hour => !disabledSet.has(hour))
+                    .sort((a, b) => a - b);
+
+                managerTimeSlotGrid.innerHTML = "";
+
+                for (let hour = 5; hour <= 23; hour++) {
+                    const slot = document.createElement("div");
+                    slot.className = "time-slot";
+
+                    const isSelected = selectedSlots.includes(hour);
+                    const isDisabled = disabledSet.has(hour) && !isSelected;
+
+                    if (isSelected) slot.classList.add("selected");
+                    if (isDisabled) slot.classList.add("disabled");
+
+                    slot.textContent = `${hour}:00 - ${hour + 1}:00`;
+                    slot.addEventListener("click", function () {
+                        if (isDisabled) return;
+
+                        const idx = selectedSlots.indexOf(hour);
+                        if (idx > -1) selectedSlots.splice(idx, 1);
+                        else selectedSlots.push(hour);
+
+                        selectedSlots.sort((a, b) => a - b);
+                        renderTimeSlotGrid();
+                        updateSummary();
+                    });
+
+                    managerTimeSlotGrid.appendChild(slot);
+                }
             };
 
             const getPriceByHour = (hour) => {
@@ -346,9 +391,11 @@
                 const ngayChoi = bookingDate?.value?.trim();
 
                 if (!sanId || !ngayChoi) {
-                    bookedRanges = [];
+                    bookedSlots = [];
                     pricingRanges = [];
-                    renderBookingTimeOptions();
+                    selectedSlots = [];
+                    renderTimeSlotGrid();
+                    updateSummary();
                     return;
                 }
 
@@ -364,9 +411,11 @@
                     });
 
                     if (!response.ok) {
-                        bookedRanges = [];
+                        bookedSlots = [];
                         pricingRanges = [];
-                        renderBookingTimeOptions();
+                        selectedSlots = [];
+                        renderTimeSlotGrid();
+                        updateSummary();
                         return;
                     }
 
@@ -374,12 +423,12 @@
                     const bookings = result?.bookings || [];
                     const ranges = result?.pricingRanges || [];
 
-                    bookedRanges = bookings
-                        .map(b => ({
-                            start: parseHourValue(b.gioBatDau),
-                            end: parseHourValue(b.gioKetThuc)
-                        }))
-                        .filter(x => !Number.isNaN(x.start) && !Number.isNaN(x.end) && x.end > x.start);
+                    bookedSlots = bookings
+                        .flatMap(b => String(b.khungGioRaw || "")
+                            .split(",")
+                            .map(h => parseInt(String(h).trim(), 10))
+                            .filter(h => !Number.isNaN(h) && h >= 5 && h <= 23))
+                        .filter((h, i, arr) => arr.indexOf(h) === i);
 
                     pricingRanges = ranges
                         .map(x => ({
@@ -390,110 +439,15 @@
                         .filter(x => !Number.isNaN(x.start) && !Number.isNaN(x.end) && !Number.isNaN(x.price) && x.end > x.start)
                         .sort((a, b) => a.start - b.start);
 
-                    renderBookingTimeOptions();
+                    renderTimeSlotGrid();
+                    updateSummary();
                 } catch (error) {
-                    bookedRanges = [];
+                    bookedSlots = [];
                     pricingRanges = [];
-                    renderBookingTimeOptions();
-                }
-            };
-
-            const populateBookingEndOptions = (startHour, previousEnd) => {
-                if (!bookingEnd) return;
-
-                bookingEnd.innerHTML = "";
-
-                const firstEndHour = Math.max(startHour + 1, 6);
-                for (let hour = firstEndHour; hour <= 24; hour++) {
-                    if (hasBookingOverlap(startHour, hour)) {
-                        continue;
-                    }
-
-                    const label = `${String(hour).padStart(2, "0")}:00`;
-                    const option = document.createElement("option");
-                    option.value = label;
-                    option.textContent = label;
-                    bookingEnd.appendChild(option);
-                }
-
-                if (previousEnd && bookingEnd.querySelector(`option[value="${previousEnd}"]`)) {
-                    bookingEnd.value = previousEnd;
-                } else if (bookingEnd.firstElementChild) {
-                    bookingEnd.value = bookingEnd.firstElementChild.value;
-                } else {
-                    bookingEnd.value = "";
-                }
-            };
-
-            const renderBookingTimeOptions = () => {
-                if (!bookingDate || !bookingStart || !bookingEnd) return;
-
-                const today = getTodayDateString();
-                const isToday = bookingDate.value === today;
-                const currentHour = new Date().getHours();
-                const firstAllowedStart = isToday ? currentHour + 1 : 5;
-
-                const previousStart = bookingStart.value;
-                const previousEnd = bookingEnd.value;
-
-                bookingStart.innerHTML = "";
-
-                if (isToday && firstAllowedStart > 23) {
-                    const option = document.createElement("option");
-                    option.value = "";
-                    option.textContent = "Hết khung giờ hôm nay";
-                    option.disabled = true;
-                    option.selected = true;
-                    bookingStart.appendChild(option);
-                    bookingEnd.innerHTML = "";
-                    bookingEnd.value = "";
+                    selectedSlots = [];
+                    renderTimeSlotGrid();
                     updateSummary();
-                    return;
                 }
-
-                for (let hour = firstAllowedStart; hour <= 23; hour++) {
-                    if (hasBookingOverlap(hour, hour + 1)) {
-                        continue;
-                    }
-
-                    const label = `${String(hour).padStart(2, "0")}:00`;
-                    const option = document.createElement("option");
-                    option.value = label;
-                    option.textContent = label;
-                    bookingStart.appendChild(option);
-                }
-
-                if (!bookingStart.firstElementChild) {
-                    const option = document.createElement("option");
-                    option.value = "";
-                    option.textContent = "Không còn giờ trống";
-                    option.disabled = true;
-                    option.selected = true;
-                    bookingStart.appendChild(option);
-                    bookingEnd.innerHTML = "";
-                    bookingEnd.value = "";
-                    updateSummary();
-                    return;
-                }
-
-                if (previousStart && bookingStart.querySelector(`option[value="${previousStart}"]`)) {
-                    bookingStart.value = previousStart;
-                } else if (bookingStart.firstElementChild) {
-                    bookingStart.value = bookingStart.firstElementChild.value;
-                }
-
-                const selectedStartHour = Number((bookingStart.value || "0").split(":")[0]);
-                populateBookingEndOptions(selectedStartHour, previousEnd);
-
-                if (bookingEnd.value && Number((bookingEnd.value || "0").split(":")[0]) <= selectedStartHour) {
-                    bookingEnd.value = "";
-                }
-
-                if (!bookingEnd.value && bookingEnd.firstElementChild) {
-                    bookingEnd.value = bookingEnd.firstElementChild.value;
-                }
-
-                updateSummary();
             };
 
             const scheduleLiveFilter = () => {
@@ -554,25 +508,19 @@
             };
 
             const updateSummary = () => {
-                const startVal = bookingStart?.value || "-";
-                const endVal = bookingEnd?.value || "-";
-
                 sumCustomer.textContent = bookingCustomer?.value?.trim() || "-";
                 sumLoaiSan.textContent = selectedCourtLoaiSan;
                 sumPhone.textContent = bookingPhone?.value?.trim() || "-";
-                sumTime.textContent = `${startVal} - ${endVal}`;
+                sumTime.textContent = formatSelectedSlots(selectedSlots);
                 sumDate.textContent = bookingDate?.value || "-";
 
-                const startHour = Number((bookingStart?.value || "0").split(":")[0]);
-                const endHour = Number((bookingEnd?.value || "0").split(":")[0]);
-
-                if (Number.isNaN(startHour) || Number.isNaN(endHour) || endHour <= startHour) {
+                if (!selectedSlots.length) {
                     sumTotal.textContent = formatVnd(0);
                     return;
                 }
 
                 let total = 0;
-                for (let hour = startHour; hour < endHour; hour++) {
+                for (const hour of selectedSlots) {
                     total += getPriceByHour(hour);
                 }
 
@@ -604,22 +552,16 @@
                 if (bookingDate.value === today) {
                     const currentTime = new Date();
                     const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-                    const startHourValue = Number((bookingStart?.value || "0").split(":")[0]);
-                    const startMinutes = startHourValue * 60;
 
-                    if (startMinutes <= currentMinutes) {
+                    const hasPastSlot = selectedSlots.some(slot => (slot * 60) <= currentMinutes);
+                    if (hasPastSlot) {
                         await showWarning("Không thể đặt sân cho khung giờ đã qua trong ngày hôm nay.");
                         return false;
                     }
                 }
 
-                if (!bookingStart?.value) {
-                    await showWarning("Vui lòng chọn giờ bắt đầu hợp lệ.");
-                    return false;
-                }
-
-                if ((bookingEnd?.value || "") <= (bookingStart?.value || "")) {
-                    await showWarning("Giờ kết thúc phải lớn hơn giờ bắt đầu.");
+                if (!selectedSlots.length) {
+                    await showWarning("Vui lòng chọn ít nhất một khung giờ.");
                     return false;
                 }
 
@@ -645,6 +587,7 @@
                     selectedCourtPrice = Number(gia);
                 }
 
+                selectedSlots = [];
                 updateSummary();
                 loadCourtBookings();
 
@@ -669,7 +612,7 @@
             closeBtn?.addEventListener("click", closeModal);
             backdrop?.addEventListener("click", closeModal);
 
-            [bookingCustomer, bookingPhone, bookingDate, bookingStart, bookingEnd].forEach(input => {
+            [bookingCustomer, bookingPhone, bookingDate].forEach(input => {
                 input?.addEventListener("input", updateSummary);
                 input?.addEventListener("change", updateSummary);
             });
@@ -678,16 +621,8 @@
             bookingPhone?.addEventListener("blur", lookupCustomerByPhone);
 
             bookingDate?.addEventListener("change", function () {
+                selectedSlots = [];
                 loadCourtBookings();
-            });
-
-            bookingStart?.addEventListener("change", function () {
-                const startHour = Number((this.value || "0").split(":")[0]);
-                const previousEnd = bookingEnd?.value || "";
-
-                populateBookingEndOptions(startHour, previousEnd);
-
-                updateSummary();
             });
 
             tenSanInput?.addEventListener("input", scheduleLiveFilter);
@@ -716,8 +651,7 @@
                     tenKhachHang: bookingCustomer?.value?.trim() || "",
                     soDienThoai: bookingPhone?.value?.trim() || "",
                     ngayChoi: bookingDate?.value || "",
-                    gioBatDau: bookingStart?.value || "",
-                    gioKetThuc: bookingEnd?.value || ""
+                    selectedHours: selectedSlots.slice().sort((a, b) => a - b)
                 };
 
                 const originalText = this.textContent;

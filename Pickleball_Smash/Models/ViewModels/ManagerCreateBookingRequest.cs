@@ -8,5 +8,6 @@ namespace Pickleball_Smash.Models.ViewModels
         public string? NgayChoi { get; set; }
         public string? GioBatDau { get; set; }
         public string? GioKetThuc { get; set; }
+        public List<int>? SelectedHours { get; set; }
     }
 }

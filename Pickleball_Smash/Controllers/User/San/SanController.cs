@@ -115,17 +115,180 @@ namespace Pickleball_Smash.Controllers.User.San
         }
 
         [HttpPost]
-        public async Task<IActionResult> ConfirmPayment([FromBody] List<int> bookingIds)
+        public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request)
         {
-            var donDats = await _context.DonDatSan
-                                        .Where(d => bookingIds.Contains(d.DonDatSanID))
-                                        .ToListAsync();
-            foreach (var donDat in donDats)
+            if (request?.BookingIds == null || request.BookingIds.Count == 0)
             {
-                donDat.TrangThaiDon = "Đã thanh toán";
+                return Json(new { success = false, message = "Danh sách đơn thanh toán không hợp lệ." });
             }
-            await _context.SaveChangesAsync();
-            return Json(new { success = true });
+
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null)
+            {
+                return Json(new { success = false, message = "Vui lòng đăng nhập." });
+            }
+
+            var uniqueBookingIds = request.BookingIds.Distinct().ToList();
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var donDats = await _context.DonDatSan
+                    .Where(d => uniqueBookingIds.Contains(d.DonDatSanID) && d.NguoiDungID == userId.Value)
+                    .ToListAsync();
+
+                if (!donDats.Any())
+                {
+                    return Json(new { success = false, message = "Không tìm thấy đơn cần thanh toán." });
+                }
+
+                Voucher? voucher = null;
+                decimal tongTienDon = donDats.Sum(x => x.TongTien ?? 0m);
+                if (!string.IsNullOrWhiteSpace(request.VoucherCode))
+                {
+                    var voucherResult = await ValidateVoucherAsync(request.VoucherCode, donDats.Count, tongTienDon);
+                    if (!voucherResult.IsValid)
+                    {
+                        return Json(new { success = false, message = voucherResult.Message });
+                    }
+
+                    voucher = voucherResult.Voucher;
+                }
+
+                foreach (var donDat in donDats)
+                {
+                    decimal soTienGiam = 0m;
+                    if (voucher != null)
+                    {
+                        soTienGiam = CalculateDiscountAmount(voucher, donDat.TongTien ?? 0m);
+                        donDat.VoucherID = voucher.VoucherID;
+                    }
+
+                    donDat.SoTienGiam = soTienGiam;
+                    donDat.TongTien = Math.Max(0m, (donDat.TongTien ?? 0m) - soTienGiam);
+                    donDat.TrangThaiDon = "Chờ xác nhận";
+
+                    var hasPayment = await _context.ThanhToan.AnyAsync(x => x.DonDatSanID == donDat.DonDatSanID);
+                    if (!hasPayment)
+                    {
+                        var payment = new ThanhToan
+                        {
+                            DonDatSanID = donDat.DonDatSanID,
+                            PhuongThuc = "Online",
+                            SoTien = donDat.TongTien ?? 0,
+                            MaGiaoDich = $"USR-{donDat.DonDatSanID}-{DateTime.Now:yyyyMMddHHmmss}",
+                            TrangThai = "Đã thanh toán",
+                            NgayThanhToan = DateTime.Now
+                        };
+
+                        _context.ThanhToan.Add(payment);
+                    }
+                }
+
+                if (voucher != null)
+                {
+                    voucher.SoLuongDaDung = (voucher.SoLuongDaDung ?? 0) + donDats.Count;
+                    _context.Voucher.Update(voucher);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return Json(new { success = true });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                return Json(new { success = false, message = "Không thể xác nhận thanh toán. Vui lòng thử lại." });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ValidateVoucher([FromBody] ValidateVoucherRequest request)
+        {
+            if (request?.BookingIds == null || request.BookingIds.Count == 0)
+            {
+                return Json(new { success = false, message = "Không có đơn đặt sân để áp dụng voucher." });
+            }
+
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null)
+            {
+                return Json(new { success = false, message = "Vui lòng đăng nhập." });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.VoucherCode))
+            {
+                return Json(new { success = false, message = "Vui lòng nhập mã voucher." });
+            }
+
+            var bookingIds = request.BookingIds.Distinct().ToList();
+            var donDats = await _context.DonDatSan
+                .Where(d => bookingIds.Contains(d.DonDatSanID) && d.NguoiDungID == userId.Value)
+                .ToListAsync();
+
+            if (!donDats.Any())
+            {
+                return Json(new { success = false, message = "Không tìm thấy đơn cần áp voucher." });
+            }
+
+            var tongTienDon = donDats.Sum(x => x.TongTien ?? 0m);
+            var voucherResult = await ValidateVoucherAsync(request.VoucherCode, donDats.Count, tongTienDon);
+            if (!voucherResult.IsValid || voucherResult.Voucher == null)
+            {
+                return Json(new { success = false, message = voucherResult.Message });
+            }
+
+            var voucher = voucherResult.Voucher;
+            decimal tongGiam = donDats.Sum(d => CalculateDiscountAmount(voucher, d.TongTien ?? 0m));
+            decimal thanhTien = Math.Max(0m, tongTienDon - tongGiam);
+
+            return Json(new
+            {
+                success = true,
+                message = "Áp voucher thành công.",
+                discountAmount = tongGiam,
+                finalAmount = thanhTien,
+                voucherCode = voucher.MaVoucher
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ValidateVoucherBeforeBooking([FromBody] ValidateVoucherBeforeBookingRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request?.VoucherCode))
+            {
+                return Json(new { success = false, message = "Vui lòng nhập mã voucher." });
+            }
+
+            if (request.TotalAmount <= 0)
+            {
+                return Json(new { success = false, message = "Số tiền không hợp lệ." });
+            }
+
+            if (request.BookingCount <= 0)
+            {
+                return Json(new { success = false, message = "Số lượng đơn không hợp lệ." });
+            }
+
+            var voucherResult = await ValidateVoucherAsync(request.VoucherCode, request.BookingCount, request.TotalAmount);
+            if (!voucherResult.IsValid || voucherResult.Voucher == null)
+            {
+                return Json(new { success = false, message = voucherResult.Message });
+            }
+
+            var voucher = voucherResult.Voucher;
+            decimal discountAmount = CalculateDiscountAmount(voucher, request.TotalAmount);
+            decimal finalAmount = Math.Max(0m, request.TotalAmount - discountAmount);
+
+            return Json(new
+            {
+                success = true,
+                message = "Áp voucher thành công.",
+                discountAmount = discountAmount,
+                finalAmount = finalAmount,
+                voucherCode = voucher.MaVoucher,
+                voucherId = voucher.VoucherID
+            });
         }
 
         [HttpGet]
@@ -190,6 +353,79 @@ namespace Pickleball_Smash.Controllers.User.San
 
             return string.Join(", ", result);
         }
+
+        private async Task<(bool IsValid, string Message, Voucher? Voucher)> ValidateVoucherAsync(string voucherCode, int soLuongDon, decimal tongTienDon)
+        {
+            var code = voucherCode.Trim();
+            var voucher = await _context.Voucher
+                .FirstOrDefaultAsync(v => v.MaVoucher.ToLower() == code.ToLower());
+
+            if (voucher == null)
+            {
+                return (false, "Voucher không tồn tại.", null);
+            }
+
+            var now = DateTime.Now;
+            if (voucher.NgayBatDau.HasValue && now < voucher.NgayBatDau.Value)
+            {
+                return (false, "Voucher chưa đến thời gian sử dụng.", null);
+            }
+
+            if (voucher.NgayKetThuc.HasValue && now > voucher.NgayKetThuc.Value)
+            {
+                return (false, "Voucher đã hết hạn.", null);
+            }
+
+            if (!string.IsNullOrWhiteSpace(voucher.TrangThai) && voucher.TrangThai.Contains("hết", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "Voucher đã hết hạn.", null);
+            }
+
+            var soLuongConLai = (voucher.SoLuongToiDa ?? int.MaxValue) - (voucher.SoLuongDaDung ?? 0);
+            if (soLuongConLai < soLuongDon)
+            {
+                return (false, "Voucher đã hết lượt sử dụng.", null);
+            }
+
+            if ((voucher.GiaTriDonToiThieu ?? 0m) > tongTienDon)
+            {
+                return (false, "Đơn hàng chưa đạt giá trị tối thiểu để dùng voucher.", null);
+            }
+
+            if (voucher.GiaTriDonToiThieu.HasValue && tongTienDon < voucher.GiaTriDonToiThieu.Value)
+            {
+                return (false, "Tổng tiền đơn hàng không đạt giá trị tối thiểu để áp dụng voucher.", null);
+            }
+
+            if (voucher.SoLuongToiDa.HasValue && voucher.SoLuongDaDung >= voucher.SoLuongToiDa)
+            {
+                return (false, "Voucher đã được sử dụng hết.", null);
+            }
+
+            return (true, string.Empty, voucher);
+        }
+
+        private static decimal CalculateDiscountAmount(Voucher voucher, decimal amount)
+        {
+            if (amount <= 0) return 0m;
+
+            decimal giam = 0m;
+            if (string.Equals(voucher.LoaiGiamGia, "%", StringComparison.OrdinalIgnoreCase))
+            {
+                giam = amount * ((voucher.GiaTriGiam ?? 0m) / 100m);
+            }
+            else
+            {
+                giam = voucher.GiaTriGiam ?? 0m;
+            }
+
+            if (voucher.GiamToiDa.HasValue && voucher.GiamToiDa.Value > 0)
+            {
+                giam = Math.Min(giam, voucher.GiamToiDa.Value);
+            }
+
+            return Math.Max(0m, Math.Min(giam, amount));
+        }
     }
 
     public class BookingRequest
@@ -199,5 +435,24 @@ namespace Pickleball_Smash.Controllers.User.San
         public List<int> SelectedHours { get; set; } = new();
         public string? GhiChu { get; set; }
         public decimal TongTien { get; set; }
+    }
+
+    public class ConfirmPaymentRequest
+    {
+        public List<int> BookingIds { get; set; } = new();
+        public string? VoucherCode { get; set; }
+    }
+
+    public class ValidateVoucherRequest
+    {
+        public List<int> BookingIds { get; set; } = new();
+        public string? VoucherCode { get; set; }
+    }
+
+    public class ValidateVoucherBeforeBookingRequest
+    {
+        public string? VoucherCode { get; set; }
+        public decimal TotalAmount { get; set; }
+        public int BookingCount { get; set; }
     }
 }

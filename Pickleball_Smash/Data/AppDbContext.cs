@@ -75,9 +75,7 @@ namespace Pickleball_Smash.Data
             modelBuilder.Entity<BangGiaKhungGio>().HasKey(e => e.MaGia);
             modelBuilder.Entity<BangGiaKhungGio>().ToTable("BANG_GIA_KHUNG_GIO");
             modelBuilder.Entity<BangGiaKhungGio>()
-                .Property(e => e.GioBatDau).HasColumnType("time");
-            modelBuilder.Entity<BangGiaKhungGio>()
-                .Property(e => e.GioKetThuc).HasColumnType("time");
+                .Property(e => e.KhungGio).HasColumnType("NVARCHAR(255)");
             modelBuilder.Entity<BangGiaKhungGio>()
                 .Property(e => e.GiaTien).HasPrecision(18, 2);
             modelBuilder.Entity<BangGiaKhungGio>()
@@ -118,7 +116,7 @@ namespace Pickleball_Smash.Data
             modelBuilder.Entity<DonDatSan>()
                 .Property(e => e.NgayChoi).HasColumnType("date");
             modelBuilder.Entity<DonDatSan>()
-                // THÊM THU?C TÍNH KHUNG GI? M?I
+                // THï¿½M THU?C Tï¿½NH KHUNG GI? M?I
                 .Property(e => e.KhungGio).HasColumnType("NVARCHAR(255)");
             modelBuilder.Entity<DonDatSan>()
                 .Property(e => e.TongTien).HasPrecision(18, 2);

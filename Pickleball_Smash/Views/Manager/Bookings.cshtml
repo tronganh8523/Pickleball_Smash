@@ -147,6 +147,13 @@
                                     @if (isWaiting)
                                     {
                                         <button type="button"
+                                                class="btn btn-sm btn-outline-warning js-edit-booking"
+                                                data-booking-id="@item.DonDatSanID"
+                                                data-san-id="@(item.SanID ?? 0)">
+                                            Sửa
+                                        </button>
+
+                                        <button type="button"
                                                 class="btn btn-sm btn-outline-success js-confirm-booking"
                                                 data-booking-id="@item.DonDatSanID"
                                                 data-san-id="@(item.SanID ?? 0)">

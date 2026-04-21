@@ -33,8 +33,7 @@
                     <thead>
                         <tr>
                             <th>Sân</th>
-                            <th>Giờ Bắt Đầu</th>
-                            <th>Giờ Kết Thúc</th>
+                            <th>Khung Giờ</th>
                             <th>Giá Tiền</th>
                             <th>Hành Động</th>
                         </tr>
@@ -46,16 +45,14 @@
                             {
                                 <tr>
                                     <td>@(item.SanPickleball?.TenSan ?? "-")</td>
-                                    <td>@(item.GioBatDau?.ToString("HH\\:mm") ?? "-")</td>
-                                    <td>@(item.GioKetThuc.HasValue && item.GioKetThuc.Value == TimeOnly.MinValue ? "24:00" : item.GioKetThuc?.ToString("HH\\:mm") ?? "-")</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.KhungGio) ? "-" : item.KhungGio)</td>
                                     <td>@(item.GiaTien?.ToString("N0") ?? "0") VNĐ</td>
                                     <td>
                                         <button type="button"
                                                 class="btn btn-sm btn-warning js-open-edit-banggia"
                                                 data-ma-gia="@item.MaGia"
                                                 data-san-id="@item.SanID"
-                                                data-gio-bat-dau="@(item.GioBatDau?.ToString("HH\\:mm") ?? "")"
-                                                data-gio-ket-thuc="@(item.GioKetThuc?.ToString("HH\\:mm") ?? "")"
+                                                data-khung-gio="@(item.KhungGio ?? "")"
                                                 data-gia-tien="@(item.GiaTien?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -67,7 +64,7 @@
                         else
                         {
                             <tr>
-                                <td colspan="5" class="text-center text-muted">Chưa có bảng giá khung giờ.</td>
+                                <td colspan="4" class="text-center text-muted">Chưa có bảng giá khung giờ.</td>
                             </tr>
                         }
                     </tbody>
@@ -77,15 +74,63 @@
     </div>
 </div>
 
+<style>
+    .time-slot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 8px;
+        margin-top: 6px;
+    }
+
+    .time-slot {
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        padding: 8px 10px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 500;
+        background: #fff;
+        cursor: pointer;
+        user-select: none;
+        transition: all .15s ease-in-out;
+    }
+
+    .time-slot:hover:not(.disabled) {
+        border-color: #0d6efd;
+        transform: translateY(-1px);
+    }
+
+    .time-slot.selected {
+        color: #fff;
+        background: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .time-slot.disabled {
+        color: #6c757d;
+        background: #f1f3f5;
+        border-color: #dee2e6;
+        cursor: not-allowed;
+    }
+</style>
+
 @await Html.PartialAsync("~/Views/Admin/BangGiaKhungGio/_CreateModal.cshtml")
 @await Html.PartialAsync("~/Views/Admin/BangGiaKhungGio/_EditModal.cshtml")
 
 @section Scripts {
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
+        document.addEventListener("DOMContentLoaded", async function () {
             const openModal = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(openModal));
             const modalDataJson = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalData));
             const modalErrors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(modalErrors));
+
+            const SLOT_START = 5;
+            const SLOT_END = 23;
+
+            let createSelectedSlots = [];
+            let createOccupiedSlots = [];
+            let editSelectedSlots = [];
+            let editOccupiedSlots = [];
 
             let restoredData = null;
             if (modalDataJson) {
@@ -96,59 +141,161 @@
                 }
             }
 
-            const normalizeTime = function (value) {
-                if (!value) return "";
-                const str = String(value);
-                if (str.length >= 5) {
-                    return str.slice(0, 5);
-                }
-                return str;
-            };
-
             const editModalElement = document.getElementById("editBangGiaModal");
             const createModalElement = document.getElementById("createBangGiaModal");
-            if (!editModalElement) return;
+            if (!editModalElement || !createModalElement) return;
 
             const editModal = new bootstrap.Modal(editModalElement);
             const createModal = createModalElement ? new bootstrap.Modal(createModalElement) : null;
+
+            const createForm = createModalElement.querySelector("form");
+            const createSanIDs = createForm.querySelector("[name='SanIDs']");
+            const createKhungGioInput = document.getElementById("createBangGiaKhungGio");
+            const createGiaTienInput = createForm.querySelector("[name='GiaTien']");
+            const createGrid = document.getElementById("createBangGiaTimeSlotGrid");
+            const createSelectedLabel = document.getElementById("createBangGiaTimeSlotSelected");
+
             const editIdParam = document.getElementById("editBangGiaIdParam");
             const editMaGia = document.getElementById("editBangGiaMaGia");
             const editSanID = document.getElementById("editBangGiaSanID");
-            const editGioBatDau = document.getElementById("editBangGiaGioBatDau");
-            const editGioKetThuc = document.getElementById("editBangGiaGioKetThuc");
+            const editKhungGio = document.getElementById("editBangGiaKhungGio");
             const editGiaTien = document.getElementById("editBangGiaGiaTien");
+            const editGrid = document.getElementById("editBangGiaTimeSlotGrid");
+            const editSelectedLabel = document.getElementById("editBangGiaTimeSlotSelected");
+
+            const parseKhungGio = function (value) {
+                if (!value) return [];
+                return String(value)
+                    .split(",")
+                    .map(function (x) { return parseInt(String(x).trim(), 10); })
+                    .filter(function (x) { return !Number.isNaN(x) && x >= SLOT_START && x <= SLOT_END; })
+                    .sort(function (a, b) { return a - b; })
+                    .filter(function (x, i, arr) { return i === 0 || x !== arr[i - 1]; });
+            };
+
+            const normalizeKhungGio = function (slots) {
+                return slots.slice().sort(function (a, b) { return a - b; }).join(",");
+            };
+
+            const formatKhungGioPreview = function (slots) {
+                if (!slots.length) return "Chưa chọn khung giờ.";
+                return slots.map(function (h) { return `${h}:00 - ${h + 1}:00`; }).join(", ");
+            };
+
+            const renderGrid = function (gridElement, selectedSlots, occupiedSlots, onToggle) {
+                if (!gridElement) return;
+                gridElement.innerHTML = "";
+                for (let hour = SLOT_START; hour <= SLOT_END; hour++) {
+                    const slot = document.createElement("div");
+                    slot.className = "time-slot";
+
+                    const isSelected = selectedSlots.includes(hour);
+                    const isDisabled = occupiedSlots.includes(hour) && !isSelected;
+
+                    if (isSelected) slot.classList.add("selected");
+                    if (isDisabled) slot.classList.add("disabled");
+
+                    slot.textContent = `${hour}:00 - ${hour + 1}:00`;
+                    slot.addEventListener("click", function () {
+                        if (isDisabled) return;
+                        onToggle(hour);
+                    });
+                    gridElement.appendChild(slot);
+                }
+            };
+
+            const updateCreateUI = function () {
+                createSelectedSlots = createSelectedSlots
+                    .filter(function (h) { return !createOccupiedSlots.includes(h); })
+                    .sort(function (a, b) { return a - b; });
+
+                createKhungGioInput.value = normalizeKhungGio(createSelectedSlots);
+                createSelectedLabel.textContent = formatKhungGioPreview(createSelectedSlots);
+
+                renderGrid(createGrid, createSelectedSlots, createOccupiedSlots, function (hour) {
+                    const idx = createSelectedSlots.indexOf(hour);
+                    if (idx > -1) createSelectedSlots.splice(idx, 1);
+                    else createSelectedSlots.push(hour);
+                    updateCreateUI();
+                });
+            };
+
+            const updateEditUI = function () {
+                editSelectedSlots = editSelectedSlots
+                    .filter(function (h) { return !editOccupiedSlots.includes(h); })
+                    .sort(function (a, b) { return a - b; });
+
+                editKhungGio.value = normalizeKhungGio(editSelectedSlots);
+                editSelectedLabel.textContent = formatKhungGioPreview(editSelectedSlots);
+
+                renderGrid(editGrid, editSelectedSlots, editOccupiedSlots, function (hour) {
+                    const idx = editSelectedSlots.indexOf(hour);
+                    if (idx > -1) editSelectedSlots.splice(idx, 1);
+                    else editSelectedSlots.push(hour);
+                    updateEditUI();
+                });
+            };
+
+            const fetchOccupiedHours = async function (sanIds, excludeMaGia) {
+                if (!sanIds || sanIds.length === 0) return [];
+
+                const query = new URLSearchParams();
+                sanIds.forEach(function (id) { query.append("sanIds", String(id)); });
+                if (excludeMaGia) query.append("excludeMaGia", String(excludeMaGia));
+
+                const response = await fetch(`/AdminBangGiaKhungGio/GetOccupiedHours?${query.toString()}`);
+                if (!response.ok) return [];
+                const data = await response.json();
+                return Array.isArray(data.occupiedHours) ? data.occupiedHours : [];
+            };
+
+            const refreshCreateOccupied = async function () {
+                const selectedSanIds = Array.from(createSanIDs.selectedOptions).map(function (opt) { return parseInt(opt.value, 10); });
+                createOccupiedSlots = await fetchOccupiedHours(selectedSanIds, null);
+                updateCreateUI();
+            };
+
+            const refreshEditOccupied = async function () {
+                const selectedSanId = editSanID.value ? parseInt(editSanID.value, 10) : null;
+                const excludeId = editMaGia.value ? parseInt(editMaGia.value, 10) : null;
+                editOccupiedSlots = selectedSanId ? await fetchOccupiedHours([selectedSanId], excludeId) : [];
+                updateEditUI();
+            };
+
+            createSanIDs.addEventListener("change", refreshCreateOccupied);
+            editSanID.addEventListener("change", refreshEditOccupied);
 
             document.querySelectorAll(".js-open-edit-banggia").forEach(function (button) {
-                button.addEventListener("click", function () {
+                button.addEventListener("click", async function () {
                     const maGia = this.dataset.maGia || "";
                     editIdParam.value = maGia;
                     editMaGia.value = maGia;
                     editSanID.value = this.dataset.sanId || "";
-                    editGioBatDau.value = this.dataset.gioBatDau || "";
-                    editGioKetThuc.value = this.dataset.gioKetThuc || "";
+                    editSelectedSlots = parseKhungGio(this.dataset.khungGio || "");
                     editGiaTien.value = this.dataset.giaTien || "";
+
+                    await refreshEditOccupied();
                     editModal.show();
                 });
             });
 
             if (openModal === "create-banggia" && createModal && restoredData) {
-                const createForm = createModalElement.querySelector("form");
                 if (createForm) {
-                    const selectSanIds = createForm.querySelector("[name='SanIDs']");
                     const selectedIds = Array.isArray(restoredData.SanIDs)
                         ? restoredData.SanIDs.map(function (x) { return String(x); })
                         : [];
 
-                    if (selectSanIds) {
-                        Array.from(selectSanIds.options).forEach(function (opt) {
+                    if (createSanIDs) {
+                        Array.from(createSanIDs.options).forEach(function (opt) {
                             opt.selected = selectedIds.includes(opt.value);
                         });
                     }
 
-                    createForm.querySelector("[name='GioBatDau']").value = normalizeTime(restoredData.GioBatDau);
-                    createForm.querySelector("[name='GioKetThuc']").value = normalizeTime(restoredData.GioKetThuc);
-                    createForm.querySelector("[name='GiaTien']").value = restoredData.GiaTien ?? "";
+                    createSelectedSlots = parseKhungGio(restoredData.KhungGio ?? "");
+                    createGiaTienInput.value = restoredData.GiaTien ?? "";
                 }
+
+                await refreshCreateOccupied();
                 createModal.show();
             }
 
@@ -157,10 +304,16 @@
                 editIdParam.value = maGia;
                 editMaGia.value = maGia;
                 editSanID.value = restoredData.SanID || "";
-                editGioBatDau.value = normalizeTime(restoredData.GioBatDau);
-                editGioKetThuc.value = normalizeTime(restoredData.GioKetThuc);
+                editSelectedSlots = parseKhungGio(restoredData.KhungGio || "");
                 editGiaTien.value = restoredData.GiaTien ?? "";
+
+                await refreshEditOccupied();
                 editModal.show();
+            }
+
+            if (!openModal) {
+                updateCreateUI();
+                updateEditUI();
             }
 
             if (modalErrors && window.Swal) {

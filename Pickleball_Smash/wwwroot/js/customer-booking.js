@@ -4,6 +4,8 @@ let finalPrice = 0;
 let selectedSlots = [];
 let bookedSlots = [];
 let currentDetailCourtId = null;
+let appliedVoucherCode = '';
+let appliedDiscountAmount = 0;
 
 function openModal(id) {
     document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
@@ -148,9 +150,87 @@ function calcTotal() {
     }
 
     finalPrice = pricePerHour * selectedSlots.length;
-    const priceStr = finalPrice.toLocaleString('vi-VN') + 'đ';
-    document.getElementById('sumTotalOrigin').innerText = priceStr;
-    document.getElementById('sumTotalFinal').innerText = priceStr;
+    if (appliedDiscountAmount > finalPrice) {
+        appliedDiscountAmount = finalPrice;
+    }
+
+    const tongTienSauGiam = Math.max(0, finalPrice - appliedDiscountAmount);
+    document.getElementById('sumTotalOrigin').innerText = finalPrice.toLocaleString('vi-VN') + 'đ';
+    document.getElementById('sumTotalFinal').innerText = tongTienSauGiam.toLocaleString('vi-VN') + 'đ';
+}
+
+function resetVoucherState() {
+    appliedVoucherCode = '';
+    appliedDiscountAmount = 0;
+    const voucherInput = document.getElementById('voucherCodeInput');
+    if (voucherInput) {
+        voucherInput.value = '';
+    }
+}
+
+function applyVoucher() {
+    const voucherInput = document.getElementById('voucherCodeInput');
+    const voucherCode = voucherInput ? voucherInput.value.trim() : '';
+    if (!voucherCode) {
+        alert('Vui lòng nhập mã voucher.');
+        return;
+    }
+
+    // Nếu đã có đơn, sử dụng endpoint cũ
+    if (currentBookingIds.length > 0) {
+        fetch('/San/ValidateVoucher', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookingIds: currentBookingIds,
+                voucherCode: voucherCode
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || 'Không thể áp dụng voucher.');
+                    return;
+                }
+
+                appliedVoucherCode = data.voucherCode || voucherCode;
+                appliedDiscountAmount = Number(data.discountAmount || 0);
+                document.getElementById('sumTotalOrigin').innerText = finalPrice.toLocaleString('vi-VN') + 'đ';
+                document.getElementById('sumTotalFinal').innerText = Number(data.finalAmount || 0).toLocaleString('vi-VN') + 'đ';
+                alert(data.message || 'Áp voucher thành công.');
+            })
+            .catch(() => alert('Không thể kiểm tra voucher lúc này.'));
+    }
+    // Nếu chưa tạo đơn nhưng đã chọn khung giờ, sử dụng endpoint mới (trước khi đặt sân)
+    else if (selectedSlots.length > 0 && finalPrice > 0) {
+        fetch('/San/ValidateVoucherBeforeBooking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                voucherCode: voucherCode,
+                totalAmount: finalPrice,
+                bookingCount: selectedSlots.length
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || 'Không thể áp dụng voucher.');
+                    return;
+                }
+
+                appliedVoucherCode = data.voucherCode || voucherCode;
+                appliedDiscountAmount = Number(data.discountAmount || 0);
+                document.getElementById('sumTotalOrigin').innerText = finalPrice.toLocaleString('vi-VN') + 'đ';
+                document.getElementById('sumTotalFinal').innerText = Number(data.finalAmount || 0).toLocaleString('vi-VN') + 'đ';
+                alert(data.message || 'Áp voucher thành công.');
+            })
+            .catch(() => alert('Không thể kiểm tra voucher lúc này.'));
+    }
+    else {
+        alert('Vui lòng chọn ít nhất 1 khung giờ trước khi áp dụng voucher.');
+        return;
+    }
 }
 
 function submitBooking() {
@@ -183,12 +263,32 @@ function submitBooking() {
         .then(data => {
             if (data.success) {
                 currentBookingIds = data.bookingIds;
+                // Không xóa appliedVoucherCode ở đây nữa - sẽ xóa sau khi thanh toán thành công
                 closeModal('bookingModal');
+                updatePaymentModal();
                 openModal('paymentModal');
             } else {
                 alert(data.message);
             }
         });
+}
+
+function updatePaymentModal() {
+    const voucherInfo = document.getElementById('paymentVoucherInfo');
+    const voucherCodeDisplay = document.getElementById('paymentVoucherCode');
+    const voucherDiscountDisplay = document.getElementById('paymentVoucherDiscount');
+    const finalAmountDisplay = document.getElementById('paymentFinalAmount');
+
+    if (appliedVoucherCode && appliedDiscountAmount > 0) {
+        voucherInfo.style.display = 'block';
+        voucherCodeDisplay.innerText = appliedVoucherCode;
+        voucherDiscountDisplay.innerText = appliedDiscountAmount.toLocaleString('vi-VN') + 'đ';
+    } else {
+        voucherInfo.style.display = 'none';
+    }
+
+    const finalAmount = Math.max(0, finalPrice - (appliedDiscountAmount || 0));
+    finalAmountDisplay.innerText = finalAmount.toLocaleString('vi-VN') + 'đ';
 }
 
 // ================= LOGIC THANH TOÁN & LỊCH SỬ =================
@@ -198,14 +298,21 @@ function confirmPayment() {
     fetch('/San/ConfirmPayment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentBookingIds)
+        body: JSON.stringify({
+            bookingIds: currentBookingIds,
+            voucherCode: appliedVoucherCode || null
+        })
     })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert('Thanh toán thành công!');
+                alert('Thanh toán thành công! Đơn của bạn sẽ được quản lý xác nhận.');
+                currentBookingIds = [];
+                resetVoucherState();
                 closeModal('paymentModal');
                 loadHistory();
+            } else {
+                alert(data.message || 'Thanh toán thất bại.');
             }
         });
 }

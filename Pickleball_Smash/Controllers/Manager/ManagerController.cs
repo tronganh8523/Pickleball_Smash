@@ -177,19 +177,37 @@ namespace Pickleball_Smash.Controllers
                 return BadRequest(new { success = false, message = "Không thể đặt sân cho ngày trong quá khứ." });
             }
 
-            if (!TryParseBookingTime(request.GioBatDau, out var gioBatDau, out var gioBatDauIsEndOfDay)
-                || !TryParseBookingTime(request.GioKetThuc, out var gioKetThuc, out var gioKetThucIsEndOfDay))
+            List<int> selectedHours;
+            if (request.SelectedHours != null && request.SelectedHours.Any())
             {
-                return BadRequest(new { success = false, message = "Khung giờ không hợp lệ." });
+                selectedHours = request.SelectedHours
+                    .Where(h => h >= 5 && h <= 23)
+                    .Distinct()
+                    .OrderBy(h => h)
+                    .ToList();
+            }
+            else
+            {
+                if (!TryParseBookingTime(request.GioBatDau, out var gioBatDau, out var gioBatDauIsEndOfDay)
+                    || !TryParseBookingTime(request.GioKetThuc, out var gioKetThuc, out var gioKetThucIsEndOfDay))
+                {
+                    return BadRequest(new { success = false, message = "Khung giờ không hợp lệ." });
+                }
+
+                if (gioBatDauIsEndOfDay || (!gioKetThucIsEndOfDay && gioKetThuc <= gioBatDau))
+                {
+                    return BadRequest(new { success = false, message = "Giờ kết thúc phải lớn hơn giờ bắt đầu." });
+                }
+
+                var bookingStartHour = GetBookingMinute(gioBatDau, gioBatDauIsEndOfDay) / 60;
+                var bookingEndHour = GetBookingMinute(gioKetThuc, gioKetThucIsEndOfDay) / 60;
+                selectedHours = Enumerable.Range(bookingStartHour, bookingEndHour - bookingStartHour).ToList();
             }
 
-            if (gioBatDauIsEndOfDay || (!gioKetThucIsEndOfDay && gioKetThuc <= gioBatDau))
+            if (!selectedHours.Any())
             {
-                return BadRequest(new { success = false, message = "Giờ kết thúc phải lớn hơn giờ bắt đầu." });
+                return BadRequest(new { success = false, message = "Vui lòng chọn ít nhất một khung giờ hợp lệ." });
             }
-
-            var bookingStartHour = GetBookingMinute(gioBatDau, gioBatDauIsEndOfDay) / 60;
-            var bookingEndHour = GetBookingMinute(gioKetThuc, gioKetThucIsEndOfDay) / 60;
 
             var san = await _context.SanPickleball.FirstOrDefaultAsync(x => x.SanID == request.SanID);
             if (san == null) return BadRequest(new { success = false, message = "Sân không tồn tại." });
@@ -206,13 +224,11 @@ namespace Pickleball_Smash.Controllers
                 .Where(x => x.SanID == request.SanID && x.NgayChoi == ngayChoi && x.TrangThaiDon != null && trangThaiDonDangHoatDong.Contains(x.TrangThaiDon))
                 .ToListAsync();
 
-            var newHours = Enumerable.Range(bookingStartHour, bookingEndHour - bookingStartHour).ToList();
-
             var biTrungGio = donCungNgay.Any(x =>
             {
                 if (string.IsNullOrEmpty(x.KhungGio)) return false;
                 var existingHours = x.KhungGio.Split(',').Select(h => int.TryParse(h.Trim(), out var parsed) ? parsed : -1).Where(h => h != -1);
-                return newHours.Intersect(existingHours).Any();
+                return selectedHours.Intersect(existingHours).Any();
             });
 
             if (biTrungGio)
@@ -223,22 +239,37 @@ namespace Pickleball_Smash.Controllers
             // TÍNH TIỀN
             var bangGiaKhungGio = await _context.BangGiaKhungGio
                 .AsNoTracking()
-                .Where(x => x.SanID == san.SanID && x.GioBatDau.HasValue && x.GioKetThuc.HasValue)
+                .Where(x => x.SanID == san.SanID && !string.IsNullOrWhiteSpace(x.KhungGio) && x.GiaTien.HasValue)
                 .Select(x => new
                 {
-                    StartHour = x.GioBatDau!.Value.Hour,
-                    EndHour = x.GioKetThuc!.Value == TimeOnly.MinValue ? 24 : x.GioKetThuc.Value.Hour,
+                    x.KhungGio,
                     GiaTien = x.GiaTien
                 })
                 .ToListAsync();
 
+            var giaTheoGio = new Dictionary<int, decimal>();
+            foreach (var row in bangGiaKhungGio)
+            {
+                if (!TryParseKhungGioHours(row.KhungGio, out var hours))
+                {
+                    continue;
+                }
+
+                foreach (var hour in hours)
+                {
+                    if (!giaTheoGio.ContainsKey(hour))
+                    {
+                        giaTheoGio[hour] = row.GiaTien!.Value;
+                    }
+                }
+            }
+
             decimal tongTien = 0;
             var giaCoBan = san.GiaCoBan ?? 0;
 
-            for (var hour = bookingStartHour; hour < bookingEndHour; hour++)
+            foreach (var hour in selectedHours)
             {
-                var giaTheoKhung = bangGiaKhungGio.FirstOrDefault(x => x.StartHour <= hour && hour < x.EndHour && x.GiaTien.HasValue)?.GiaTien;
-                var donGia = giaTheoKhung ?? giaCoBan;
+                var donGia = giaTheoGio.TryGetValue(hour, out var giaTheoKhung) ? giaTheoKhung : giaCoBan;
                 if (donGia <= 0) return BadRequest(new { success = false, message = "Sân chưa được cấu hình giá hợp lệ cho khung giờ đã chọn." });
                 tongTien += donGia;
             }
@@ -283,7 +314,7 @@ namespace Pickleball_Smash.Controllers
                 NguoiDungID = nguoiDung.NguoiDungID,
                 SanID = san.SanID,
                 NgayChoi = ngayChoi,
-                KhungGio = string.Join(",", newHours), // LƯU KHUNG GIỜ VÀO DATABASE
+                KhungGio = string.Join(",", selectedHours),
                 TongTien = tongTien,
                 SoTienGiam = 0,
                 TrangThaiDon = "Chờ xác nhận",
@@ -318,6 +349,7 @@ namespace Pickleball_Smash.Controllers
                     x.DonDatSanID,
                     khachHang = x.NguoiDung != null ? (x.NguoiDung.HoTen ?? x.NguoiDung.TenDangNhap ?? "Khách lẻ") : "Khách lẻ",
                     soDienThoai = x.NguoiDung != null ? x.NguoiDung.SDT : "-",
+                    khungGioRaw = x.KhungGio ?? string.Empty,
                     // Gắn khung giờ gộp vào biến UI cũ để không bị lỗi giao diện Javascript
                     gioBatDau = FormatBookingTimeRange(x),
                     gioKetThuc = "",
@@ -326,16 +358,35 @@ namespace Pickleball_Smash.Controllers
                 })
                 .ToList();
 
-            var pricingRanges = await _context.BangGiaKhungGio
+            var pricingRows = await _context.BangGiaKhungGio
                 .AsNoTracking()
-                .Where(x => x.SanID == sanId && x.GioBatDau.HasValue && x.GioKetThuc.HasValue && x.GiaTien.HasValue)
+                .Where(x => x.SanID == sanId && !string.IsNullOrWhiteSpace(x.KhungGio) && x.GiaTien.HasValue)
                 .Select(x => new
                 {
-                    startHour = x.GioBatDau!.Value.Hour,
-                    endHour = x.GioKetThuc!.Value == TimeOnly.MinValue ? 24 : x.GioKetThuc.Value.Hour,
+                    x.KhungGio,
                     giaTien = x.GiaTien!.Value
                 })
                 .ToListAsync();
+
+            var pricingRanges = pricingRows
+                .SelectMany(x =>
+                {
+                    if (!TryParseKhungGioHours(x.KhungGio, out var hours))
+                    {
+                        return Enumerable.Empty<object>();
+                    }
+
+                    return hours
+                        .Distinct()
+                        .OrderBy(h => h)
+                        .Select(h => (object)new
+                        {
+                            startHour = h,
+                            endHour = h + 1,
+                            giaTien = x.giaTien
+                        });
+                })
+                .ToList();
 
             return Ok(new { success = true, bookings = bookings, pricingRanges = pricingRanges });
         }
@@ -437,6 +488,24 @@ namespace Pickleball_Smash.Controllers
         private static int GetBookingMinute(TimeOnly timeOnly, bool isEndOfDay)
         {
             return isEndOfDay || timeOnly == TimeOnly.MinValue ? 24 * 60 : timeOnly.Hour * 60 + timeOnly.Minute;
+        }
+
+        private static bool TryParseKhungGioHours(string? khungGio, out List<int> hours)
+        {
+            hours = new List<int>();
+            if (string.IsNullOrWhiteSpace(khungGio)) return false;
+
+            var parsed = khungGio
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(part => int.TryParse(part, out var hour) ? hour : -1)
+                .Where(hour => hour >= 0)
+                .Distinct()
+                .OrderBy(hour => hour)
+                .ToList();
+
+            if (!parsed.Any()) return false;
+            hours = parsed;
+            return true;
         }
     }
 }

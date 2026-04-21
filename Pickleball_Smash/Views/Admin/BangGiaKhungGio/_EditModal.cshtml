@@ -17,21 +17,15 @@
                                 <option value="">-- chọn --</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Giờ bắt đầu</label>
-                            <select name="GioBatDau" id="editBangGiaGioBatDau" class="form-select" asp-items="ViewBag.StartHourOptions">
-                                <option value="">-- Chọn giờ bắt đầu --</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Giờ kết thúc</label>
-                            <select name="GioKetThuc" id="editBangGiaGioKetThuc" class="form-select" asp-items="ViewBag.EndHourOptions">
-                                <option value="">-- Chọn giờ kết thúc --</option>
-                            </select>
+                        <div class="col-md-8">
+                            <label class="form-label">Khung giờ</label>
+                            <input type="hidden" name="KhungGio" id="editBangGiaKhungGio" />
+                            <div id="editBangGiaTimeSlotGrid" class="time-slot-grid"></div>
+                            <small id="editBangGiaTimeSlotSelected" class="form-text text-muted">Chưa chọn khung giờ.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Giá tiền</label>
-                            <input name="GiaTien" id="editBangGiaGiaTien" class="form-control" type="number" step="1000" min="0" />
+                            <input name="GiaTien" id="editBangGiaGiaTien" class="form-control" type="number" step="0.01" min="0" />
                         </div>
                     </div>
                 </div>

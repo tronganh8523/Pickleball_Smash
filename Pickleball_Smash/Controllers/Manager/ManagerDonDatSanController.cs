@@ -101,21 +101,60 @@ namespace Pickleball_Smash.Controllers
             if (!HasManagerAccess()) return Forbid();
             if (request == null || request.SanID <= 0 || request.BookingID <= 0) return BadRequest(new { success = false, message = "Dữ liệu check-out không hợp lệ." });
 
-            var donDat = await _context.DonDatSan.Include(x => x.SanPickleball).FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
-            if (donDat == null) return NotFound(new { success = false, message = "Không tìm thấy đơn đang hoạt động của sân." });
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var donDat = await _context.DonDatSan
+                    .Include(x => x.SanPickleball)
+                    .FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
 
-            var activeStatuses = new[] { "Chờ xác nhận", "Đã xác nhận", "Đang chơi", "Đã đặt" };
-            if (string.IsNullOrWhiteSpace(donDat.TrangThaiDon) || !activeStatuses.Contains(donDat.TrangThaiDon, StringComparer.OrdinalIgnoreCase))
-                return BadRequest(new { success = false, message = "Đơn này không ở trạng thái có thể check-out." });
+                if (donDat == null)
+                {
+                    return NotFound(new { success = false, message = "Không tìm thấy đơn đang hoạt động của sân." });
+                }
 
-            donDat.TrangThaiDon = "Hoàn thành";
-            var san = donDat.SanPickleball;
-            if (san != null) { san.TrangThai = "Trống"; _context.SanPickleball.Update(san); }
+                // Chỉ có thể check-out từ các trạng thái đã xác nhận
+                var checkoutStatuses = new[] { "Đã xác nhận", "Đang chơi" };
+                if (string.IsNullOrWhiteSpace(donDat.TrangThaiDon) || !checkoutStatuses.Contains(donDat.TrangThaiDon, StringComparer.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { success = false, message = "Vui lòng xác nhận đơn trước khi check-out." });
+                }
 
-            _context.DonDatSan.Update(donDat);
-            await _context.SaveChangesAsync();
+                donDat.TrangThaiDon = "Hoàn thành";
+                var san = donDat.SanPickleball;
+                if (san != null)
+                {
+                    san.TrangThai = "Trống";
+                    _context.SanPickleball.Update(san);
+                }
 
-            return Ok(new { success = true, message = "Đã check-out và giải phóng sân." });
+                var hasPayment = await _context.ThanhToan.AnyAsync(x => x.DonDatSanID == donDat.DonDatSanID);
+                if (!hasPayment)
+                {
+                    var payment = new ThanhToan
+                    {
+                        DonDatSanID = donDat.DonDatSanID,
+                        PhuongThuc = "Tiền mặt tại quầy",
+                        SoTien = donDat.TongTien ?? 0,
+                        MaGiaoDich = $"MGR-{donDat.DonDatSanID}-{DateTime.Now:yyyyMMddHHmmss}",
+                        TrangThai = "Hoàn thành",
+                        NgayThanhToan = DateTime.Now
+                    };
+
+                    _context.ThanhToan.Add(payment);
+                }
+
+                _context.DonDatSan.Update(donDat);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { success = true, message = "Đã check-out và giải phóng sân." });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "Không thể check-out. Vui lòng thử lại." });
+            }
         }
 
         [HttpPost]

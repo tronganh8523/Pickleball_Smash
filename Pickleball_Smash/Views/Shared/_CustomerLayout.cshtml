@@ -149,8 +149,8 @@
                     <div class="summary-total"><span>Tổng Tiền:</span> <span id="sumTotalOrigin">0đ</span></div>
 
                     <div class="discount-row">
-                        <input type="text" placeholder="Mã Giảm Giá">
-                        <button>Sử dụng</button>
+                        <input type="text" id="voucherCodeInput" placeholder="Mã Giảm Giá">
+                        <button type="button" onclick="applyVoucher()">Sử dụng</button>
                     </div>
 
                     <div class="summary-total"><span>Thành Tiền:</span> <span id="sumTotalFinal" style="color: #dc3545;">0đ</span></div>
@@ -165,6 +165,14 @@
             <button class="auth-close" onclick="closeModal('paymentModal')">×</button>
             <h2 class="auth-title">Thanh toán</h2>
             <div class="payment-content">
+                <div id="paymentVoucherInfo" style="display:none; background-color: #f0f8ff; padding: 10px; margin-bottom: 15px; border-radius: 5px; border-left: 4px solid #4CAF50;">
+                    <p style="margin: 0; font-size: 14px;">
+                        <strong>Voucher áp dụng:</strong> <span id="paymentVoucherCode"></span>
+                    </p>
+                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #d9534f;">
+                        <strong>Tiền giảm:</strong> <span id="paymentVoucherDiscount"></span>
+                    </p>
+                </div>
                 <div class="qr-code-box">
                     <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=ChuyenKhoanPickleball" alt="QR Code">
                 </div>
@@ -172,6 +180,10 @@
                     <h4>Tài Khoản Thụ Hưởng</h4>
                     <h4>Pickleball Smash</h4>
                     <h2>STK: 123456789</h2>
+                </div>
+                <div style="text-align: center; margin: 15px 0; padding: 10px; background-color: #f9f9f9; border-radius: 5px;">
+                    <p style="margin: 0; font-size: 14px;">Số tiền cần chuyển:</p>
+                    <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: bold; color: #d9534f;" id="paymentFinalAmount">0đ</p>
                 </div>
                 <button class="btn-primary-blue" onclick="confirmPayment()">Đã Thanh Toán</button>
             </div>

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
@@ -23,11 +23,10 @@ namespace Pickleball_Smash.Controllers
             var items = await _context.BangGiaKhungGio
                 .Include(x => x.SanPickleball)
                 .OrderBy(x => x.SanID)
-                .ThenBy(x => x.GioBatDau)
+                .ThenBy(x => x.KhungGio)
                 .ToListAsync();
 
             await LoadSansAsync();
-            PrepareTimeOptions();
 
             return View("~/Views/Admin/BangGiaKhungGio/Index.cshtml", items);
         }
@@ -44,19 +43,20 @@ namespace Pickleball_Smash.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(BangGiaKhungGioCreateViewModel form)
         {
+            var selectedHours = new List<int>();
+
             if (form.SanIDs == null || !form.SanIDs.Any())
             {
                 ModelState.AddModelError("SanIDs", "Vui lòng chọn ít nhất 1 sân.");
             }
 
-            if (!form.GioBatDau.HasValue)
+            if (string.IsNullOrWhiteSpace(form.KhungGio))
             {
-                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu là bắt buộc.");
+                ModelState.AddModelError("KhungGio", "Khung giờ là bắt buộc.");
             }
-
-            if (!form.GioKetThuc.HasValue)
+            else if (!TryParseKhungGioHours(form.KhungGio, out selectedHours, out var khungGioError))
             {
-                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc là bắt buộc.");
+                ModelState.AddModelError("KhungGio", khungGioError);
             }
 
             if (!form.GiaTien.HasValue || form.GiaTien.Value <= 0)
@@ -64,37 +64,14 @@ namespace Pickleball_Smash.Controllers
                 ModelState.AddModelError("GiaTien", "Giá tiền phải lớn hơn 0.");
             }
 
-            if (form.GioBatDau.HasValue && !IsValidHourValue(form.GioBatDau.Value, false))
-            {
-                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu phải từ 05:00 đến 23:00 và cách nhau 1 giờ.");
-            }
-
-            if (form.GioKetThuc.HasValue && !IsValidHourValue(form.GioKetThuc.Value, true))
-            {
-                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải từ 06:00 đến 24:00 và cách nhau 1 giờ.");
-            }
-
-            if (form.GioBatDau.HasValue && form.GioKetThuc.HasValue)
-            {
-                var gioBatDau = ToHour(form.GioBatDau.Value, false);
-                var gioKetThuc = ToHour(form.GioKetThuc.Value, true);
-                if (gioBatDau >= gioKetThuc)
-                {
-                    ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải lớn hơn giờ bắt đầu.");
-                }
-            }
-
             if (ModelState.IsValid)
             {
                 var selectedSanIds = (form.SanIDs ?? new List<int>()).Distinct().ToList();
-                var gioBatDau = ToHour(form.GioBatDau!.Value, false);
-                var gioKetThuc = ToHour(form.GioKetThuc!.Value, true);
 
                 foreach (var sanId in selectedSanIds)
                 {
                     var occupiedHours = await GetOccupiedHoursForSanAsync(sanId);
-                    var hasOverlap = Enumerable.Range(gioBatDau, gioKetThuc - gioBatDau)
-                        .Any(occupiedHours.Contains);
+                    var hasOverlap = selectedHours.Any(occupiedHours.Contains);
 
                     if (hasOverlap)
                     {
@@ -111,13 +88,13 @@ namespace Pickleball_Smash.Controllers
 
             if (ModelState.IsValid)
             {
+                var normalizedKhungGio = NormalizeKhungGio(selectedHours);
                 var entities = (form.SanIDs ?? new List<int>())
                     .Distinct()
                     .Select(sanId => new BangGiaKhungGio
                     {
                         SanID = sanId,
-                        GioBatDau = form.GioBatDau,
-                        GioKetThuc = form.GioKetThuc,
+                        KhungGio = normalizedKhungGio,
                         GiaTien = form.GiaTien
                     })
                     .ToList();
@@ -142,7 +119,7 @@ namespace Pickleball_Smash.Controllers
         // POST: BangGiaKhungGio - Edit
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("MaGia,SanID,GioBatDau,GioKetThuc,GiaTien")] BangGiaKhungGio bangGia)
+        public async Task<IActionResult> Edit(int id, [Bind("MaGia,SanID,KhungGio,GiaTien")] BangGiaKhungGio bangGia)
         {
             if (id != bangGia.MaGia)
             {
@@ -223,39 +200,20 @@ namespace Pickleball_Smash.Controllers
 
         private async Task ValidateBangGiaAsync(BangGiaKhungGio bangGia, int? excludeMaGia = null)
         {
+            var selectedHours = new List<int>();
+
             if (!bangGia.SanID.HasValue)
             {
                 ModelState.AddModelError("SanID", "Vui lòng chọn sân.");
             }
 
-            if (!bangGia.GioBatDau.HasValue)
+            if (string.IsNullOrWhiteSpace(bangGia.KhungGio))
             {
-                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu là bắt buộc.");
+                ModelState.AddModelError("KhungGio", "Khung giờ là bắt buộc.");
             }
-
-            if (!bangGia.GioKetThuc.HasValue)
+            else if (!TryParseKhungGioHours(bangGia.KhungGio, out selectedHours, out var khungGioError))
             {
-                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc là bắt buộc.");
-            }
-
-            if (bangGia.GioBatDau.HasValue && !IsValidHourValue(bangGia.GioBatDau.Value, false))
-            {
-                ModelState.AddModelError("GioBatDau", "Giờ bắt đầu phải từ 05:00 đến 23:00 và cách nhau 1 giờ.");
-            }
-
-            if (bangGia.GioKetThuc.HasValue && !IsValidHourValue(bangGia.GioKetThuc.Value, true))
-            {
-                ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải từ 06:00 đến 24:00 và cách nhau 1 giờ.");
-            }
-
-            if (bangGia.GioBatDau.HasValue && bangGia.GioKetThuc.HasValue)
-            {
-                var gioBatDau = ToHour(bangGia.GioBatDau.Value, false);
-                var gioKetThuc = ToHour(bangGia.GioKetThuc.Value, true);
-                if (gioBatDau >= gioKetThuc)
-                {
-                    ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải lớn hơn giờ bắt đầu.");
-                }
+                ModelState.AddModelError("KhungGio", khungGioError);
             }
 
             if (!bangGia.GiaTien.HasValue || bangGia.GiaTien.Value <= 0)
@@ -263,64 +221,37 @@ namespace Pickleball_Smash.Controllers
                 ModelState.AddModelError("GiaTien", "Giá tiền phải lớn hơn 0.");
             }
 
-            if (ModelState.IsValid && bangGia.SanID.HasValue && bangGia.GioBatDau.HasValue && bangGia.GioKetThuc.HasValue)
+            if (ModelState.IsValid && bangGia.SanID.HasValue)
             {
-                var gioBatDau = ToHour(bangGia.GioBatDau.Value, false);
-                var gioKetThuc = ToHour(bangGia.GioKetThuc.Value, true);
-
                 var occupiedHours = await GetOccupiedHoursForSanAsync(bangGia.SanID.Value, excludeMaGia);
-                var hasOverlap = Enumerable.Range(gioBatDau, gioKetThuc - gioBatDau)
-                    .Any(occupiedHours.Contains);
+                var hasOverlap = selectedHours.Any(occupiedHours.Contains);
 
                 if (hasOverlap)
                 {
-                    ModelState.AddModelError("GioBatDau", "Khung giờ bị trùng với bảng giá đã tồn tại của sân này.");
+                    ModelState.AddModelError("KhungGio", "Khung giờ bị trùng với bảng giá đã tồn tại của sân này.");
                 }
+
+                bangGia.KhungGio = NormalizeKhungGio(selectedHours);
             }
-        }
-
-        private static bool IsValidHourValue(TimeOnly value, bool isEnd)
-        {
-            if (value.Minute != 0 || value.Second != 0)
-            {
-                return false;
-            }
-
-            var hour = ToHour(value, isEnd);
-            return isEnd
-                ? hour >= 6 && hour <= 24
-                : hour >= 5 && hour <= 23;
-        }
-
-        private static int ToHour(TimeOnly value, bool isEnd)
-        {
-            if (isEnd && value.Hour == 0 && value.Minute == 0 && value.Second == 0)
-            {
-                return 24;
-            }
-
-            return value.Hour;
         }
 
         private async Task<HashSet<int>> GetOccupiedHoursForSanAsync(int sanId, int? excludeMaGia = null)
         {
             var rows = await _context.BangGiaKhungGio
                 .Where(x => x.SanID == sanId && (!excludeMaGia.HasValue || x.MaGia != excludeMaGia.Value))
-                .Where(x => x.GioBatDau.HasValue && x.GioKetThuc.HasValue)
-                .Select(x => new { x.GioBatDau, x.GioKetThuc })
+                .Where(x => !string.IsNullOrWhiteSpace(x.KhungGio))
+                .Select(x => x.KhungGio)
                 .ToListAsync();
 
             var occupiedHours = new HashSet<int>();
             foreach (var row in rows)
             {
-                var startHour = ToHour(row.GioBatDau!.Value, false);
-                var endHour = ToHour(row.GioKetThuc!.Value, true);
-                if (startHour >= endHour)
+                if (!TryParseKhungGioHours(row, out var hours, out _))
                 {
                     continue;
                 }
 
-                for (var h = startHour; h < endHour; h++)
+                foreach (var h in hours)
                 {
                     occupiedHours.Add(h);
                 }
@@ -329,35 +260,56 @@ namespace Pickleball_Smash.Controllers
             return occupiedHours;
         }
 
-        private void PrepareTimeOptions(TimeOnly? selectedStart = null, TimeOnly? selectedEnd = null)
+        private static bool TryParseKhungGioHours(string? raw, out List<int> hours, out string error)
         {
-            var startOptions = new List<SelectListItem>();
-            for (var h = 5; h <= 23; h++)
+            hours = new List<int>();
+            error = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(raw))
             {
-                var value = $"{h:00}:00";
-                startOptions.Add(new SelectListItem
-                {
-                    Value = value,
-                    Text = value,
-                    Selected = selectedStart.HasValue && ToHour(selectedStart.Value, false) == h
-                });
+                error = "Khung giờ là bắt buộc.";
+                return false;
             }
 
-            var endOptions = new List<SelectListItem>();
-            for (var h = 6; h <= 24; h++)
+            var parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
             {
-                var value = h == 24 ? "00:00" : $"{h:00}:00";
-                var text = $"{h:00}:00";
-                endOptions.Add(new SelectListItem
-                {
-                    Value = value,
-                    Text = text,
-                    Selected = selectedEnd.HasValue && ToHour(selectedEnd.Value, true) == h
-                });
+                error = "Khung giờ là bắt buộc.";
+                return false;
             }
 
-            ViewBag.StartHourOptions = startOptions;
-            ViewBag.EndHourOptions = endOptions;
+            var parsed = new List<int>();
+            foreach (var part in parts)
+            {
+                if (!int.TryParse(part, out var hour))
+                {
+                    error = "Khung giờ không hợp lệ. Ví dụ đúng: 5,6,7.";
+                    return false;
+                }
+
+                if (hour < 5 || hour > 23)
+                {
+                    error = "Mỗi giờ trong khung giờ phải nằm trong khoảng 5 đến 23.";
+                    return false;
+                }
+
+                parsed.Add(hour);
+            }
+
+            parsed = parsed.Distinct().OrderBy(x => x).ToList();
+            if (!parsed.Any())
+            {
+                error = "Khung giờ là bắt buộc.";
+                return false;
+            }
+
+            hours = parsed;
+            return true;
+        }
+
+        private static string NormalizeKhungGio(IEnumerable<int> hours)
+        {
+            return string.Join(",", hours.Distinct().OrderBy(x => x));
         }
 
         private void SetModalState(string openModal, object modalData)
