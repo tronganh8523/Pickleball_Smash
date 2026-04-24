@@ -28,14 +28,13 @@ namespace Pickleball_Smash.Controllers
                 .OrderByDescending(d => d.NgayTao)
                 .ToListAsync();
 
-            var sanOptions = tatCaDon
-                .Where(d => d.SanPickleball != null)
-                .Select(d => new { Id = d.SanID ?? 0, TenSan = d.SanPickleball!.TenSan ?? "N/A" })
-                .Where(x => x.Id > 0)
-                .DistinctBy(x => x.Id)
-                .OrderBy(x => x.TenSan)
-                .Select(x => new SelectListItem { Value = x.Id.ToString(), Text = x.TenSan })
-                .ToList();
+            // Lấy từ danh mục sân để luôn hiển thị đủ sân (kể cả sân chưa có đơn)
+            var sanOptions = await _context.SanPickleball
+                .AsNoTracking()
+                .Where(s => s.TrangThai != null && s.TrangThai.Trim() == "Trống")
+                .OrderBy(s => s.TenSan)
+                .Select(s => new SelectListItem { Value = s.SanID.ToString(), Text = s.TenSan ?? $"Sân {s.SanID}" })
+                .ToListAsync();
 
             var khungGioOptions = tatCaDon
                 .Select(FormatBookingTimeRange)
@@ -197,6 +196,11 @@ namespace Pickleball_Smash.Controllers
                     .ToList();
             }
 
+            var giaTien = await _context.BangGiaKhungGio
+                .Where(b => b.SanID == donDat.SanID)
+                .Select(b => b.GiaTien ?? 0)
+                .FirstOrDefaultAsync();
+
             return Json(new
             {
                 success = true,
@@ -209,7 +213,8 @@ namespace Pickleball_Smash.Controllers
                     ngayChoi = donDat.NgayChoi?.ToString("yyyy-MM-dd") ?? "",
                     khungGio = donDat.KhungGio ?? "",
                     selectedHours = khungGioHours,
-                    tongTien = donDat.TongTien ?? 0
+                    tongTien = donDat.TongTien ?? 0,
+                    pricePerHour = giaTien
                 }
             });
         }
@@ -253,7 +258,10 @@ namespace Pickleball_Smash.Controllers
             var now = DateTime.Now;
             if (ngayChoi == today)
             {
-                var passedHours = selectedHours.Where(h => h <= now.Hour).ToList();
+                var passedHours = selectedHours
+                    .Where(h => DateOnly.FromDateTime(now) == today && new DateTime(now.Year, now.Month, now.Day, h, 0, 0) <= now)
+                    .ToList();
+
                 if (passedHours.Any())
                 {
                     var passedTimes = string.Join(", ", passedHours.Select(h => $"{h:D2}:00"));
@@ -262,14 +270,13 @@ namespace Pickleball_Smash.Controllers
             }
 
             // Check for time slot conflicts
+            var blockedStatuses = new[] { "Hoàn thành", "Đã hoàn thành", "Đã hủy", "Đã huỷ", "Thất bại" };
             var conflictBookings = await _context.DonDatSan
                 .Where(d => d.SanID == request.SanID
                     && d.NgayChoi == ngayChoi
                     && d.DonDatSanID != request.DonDatSanID
-                    && (d.TrangThaiDon == "Chờ xác nhận" 
-                        || d.TrangThaiDon == "Đã xác nhận" 
-                        || d.TrangThaiDon == "Đang chơi"
-                        || d.TrangThaiDon == "Đã đặt"))
+                    && d.TrangThaiDon != null
+                    && !blockedStatuses.Contains(d.TrangThaiDon.Trim()))
                 .ToListAsync();
 
             if (conflictBookings.Any())
@@ -319,7 +326,7 @@ namespace Pickleball_Smash.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAvailableTimeSlots(int sanId, string ngayChoi)
+        public async Task<IActionResult> GetAvailableTimeSlots(int sanId, string ngayChoi, int? excludeBookingId = null)
         {
             if (!HasManagerAccess()) return Json(new { success = false, message = "Không có quyền truy cập." });
             
@@ -328,15 +335,16 @@ namespace Pickleball_Smash.Controllers
 
             var today = DateOnly.FromDateTime(DateTime.Today);
             var now = DateTime.Now;
+            var isPastDay = selectedDate < today;
             
             // Lấy tất cả các đơn đặt sân không bị hủy cho sân này vào ngày đó
+            var blockedStatuses = new[] { "Hoàn thành", "Đã hoàn thành", "Đã hủy", "Đã huỷ", "Thất bại" };
             var bookedSlots = await _context.DonDatSan
                 .Where(d => d.SanID == sanId
                     && d.NgayChoi == selectedDate
-                    && (d.TrangThaiDon == "Chờ xác nhận" 
-                        || d.TrangThaiDon == "Đã xác nhận" 
-                        || d.TrangThaiDon == "Đang chơi"
-                        || d.TrangThaiDon == "Đã đặt"))
+                    && (!excludeBookingId.HasValue || d.DonDatSanID != excludeBookingId.Value)
+                    && d.TrangThaiDon != null
+                    && !blockedStatuses.Contains(d.TrangThaiDon.Trim()))
                 .Select(d => d.KhungGio)
                 .ToListAsync();
 
@@ -358,8 +366,11 @@ namespace Pickleball_Smash.Controllers
             for (int hour = 5; hour <= 23; hour++)
             {
                 bool isOccupied = occupiedHours.Contains(hour);
-                // Slot quá khứ: nếu hôm nay và giờ <= giờ hiện tại thì không thể chọn
-                bool isPassed = selectedDate == today && hour <= now.Hour;
+                // Slot quá khứ:
+                // - Nếu ngày đã qua => khóa toàn bộ
+                // - Nếu hôm nay => khóa nếu thời điểm bắt đầu slot <= hiện tại
+                bool isPassed = isPastDay
+                    || (selectedDate == today && new DateTime(now.Year, now.Month, now.Day, hour, 0, 0) <= now);
                 
                 allSlots.Add(new
                 {
@@ -367,11 +378,16 @@ namespace Pickleball_Smash.Controllers
                     isOccupied = isOccupied,
                     isPassed = isPassed,
                     disabled = isOccupied || isPassed,
-                    label = isOccupied ? "Đã đặt" : (isPassed ? "Quá giờ" : "Có sẵn")
+                    label = isOccupied ? "Đã đặt" : (isPassed ? (isPastDay ? "Quá ngày" : "Quá giờ") : "Có sẵn")
                 });
             }
 
-            return Json(new { success = true, data = allSlots });
+            var giaTien = await _context.BangGiaKhungGio
+                .Where(b => b.SanID == sanId)
+                .Select(b => b.GiaTien ?? 0)
+                .FirstOrDefaultAsync();
+
+            return Json(new { success = true, data = new { slots = allSlots, pricePerHour = giaTien } });
         }
 
         private bool HasManagerAccess()

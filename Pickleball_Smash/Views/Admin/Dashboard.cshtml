@@ -94,9 +94,12 @@
             <div class="chart-title">
                 <i class="fas fa-chart-line"></i> Báo Cáo Đặt Sân 7 Ngày Gần Nhất
             </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <small class="text-muted">Dữ liệu theo ngày tạo đơn</small>
             <a href="@Url.Action("DownloadBookingReport", "Admin")" class="btn btn-sm btn-success">
                 <i class="fas fa-download"></i> Tải báo cáo
             </a>
+            </div>
         </div>
         <div class="chart-container">
             <canvas id="bookingChart"></canvas>
@@ -113,6 +116,16 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
+        let bookingChartInstance = null;
+
+        function formatVnd(value) {
+            try {
+                return new Intl.NumberFormat('vi-VN').format(value) + ' đ';
+            } catch {
+                return value + ' đ';
+            }
+        }
+
         // Load booking chart
         async function loadBookingChart() {
             try {
@@ -120,8 +133,13 @@
                 const data = await response.json();
 
                 const ctx = document.getElementById('bookingChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
+
+                if (bookingChartInstance) {
+                    bookingChartInstance.destroy();
+                }
+
+                bookingChartInstance = new Chart(ctx, {
+                    type: 'bar',
                     data: {
                         labels: data.labels,
                         datasets: data.datasets
@@ -132,9 +150,23 @@
                         interaction: { mode: 'index', intersect: false },
                         plugins: {
                             legend: {
+                                position: 'top',
+                                align: 'center',
                                 labels: {
                                     font: { size: 12 },
                                     usePointStyle: true
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const label = context.dataset?.label || '';
+                                        const value = context.parsed?.y ?? context.raw;
+                                        if ((context.dataset?.yAxisID || '') === 'y1') {
+                                            return `${label}: ${formatVnd(value)}`;
+                                        }
+                                        return `${label}: ${value}`;
+                                    }
                                 }
                             }
                         },
@@ -145,7 +177,10 @@
                                 position: 'left',
                                 beginAtZero: true,
                                 title: { display: true, text: 'Số Đơn Đặt' },
-                                ticks: { font: { size: 11 } }
+                                ticks: {
+                                    font: { size: 11 },
+                                    precision: 0
+                                }
                             },
                             y1: {
                                 type: 'linear',
@@ -153,7 +188,12 @@
                                 position: 'right',
                                 beginAtZero: true,
                                 title: { display: true, text: 'Doanh Thu (VNĐ)' },
-                                ticks: { font: { size: 11 } },
+                                ticks: {
+                                    font: { size: 11 },
+                                    callback: function (value) {
+                                        return formatVnd(value);
+                                    }
+                                },
                                 grid: { drawOnChartArea: false }
                             },
                             x: {

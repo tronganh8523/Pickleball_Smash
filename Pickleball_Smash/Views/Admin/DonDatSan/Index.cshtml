@@ -28,6 +28,7 @@
                             <th>Giảm</th>
                             <th>Trạng Thái</th>
                             <th>Ngày Tạo</th>
+                            <th>Hoá Đơn</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -53,21 +54,36 @@
                                                 "Chờ xác nhận" => "warning text-dark",
                                                 "Đã xác nhận" => "info",
                                                 "Đã thanh toán" => "success",
-                                                "Đã hoàn thành" => "primary",
+                                                "Hoàn thành" => "success",
+                                                "Đã hoàn thành" => "success",
                                                 "Đã huỷ" => "danger",
+                                                "Đã hủy" => "danger",
                                                 _ => "secondary"
                                             };
                                         }
                                         <span class="badge bg-@statusClass">@(item.TrangThaiDon ?? "-")</span>
                                     </td>
                                     <td>@item.NgayTao?.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a class="btn btn-outline-secondary"
+                                               href="@Url.Action("InvoicePdf", "AdminDonDatSan", new { id = item.DonDatSanID, download = true })">
+                                                PDF
+                                            </a>
+                                            <a class="btn btn-outline-primary"
+                                               target="_blank"
+                                               href="@Url.Action("InvoicePdf", "AdminDonDatSan", new { id = item.DonDatSanID, download = false })">
+                                                In
+                                            </a>
+                                        </div>
+                                    </td>
                                 </tr>
                             }
                         }
                         else
                         {
                             <tr>
-                                <td colspan="10" class="text-center text-muted">Chưa có đơn đặt sân nào.</td>
+                                <td colspan="11" class="text-center text-muted">Chưa có đơn đặt sân nào.</td>
                             </tr>
                         }
                     </tbody>

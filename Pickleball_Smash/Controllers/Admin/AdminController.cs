@@ -1,6 +1,9 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
+using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 
@@ -22,10 +25,12 @@ namespace Pickleball_Smash.Controllers
             var tongNguoiDung = await _context.NguoiDung.CountAsync();
             var tongDonDat = await _context.DonDatSan.CountAsync();
             var donHoanThanh = await _context.DonDatSan
-                .Where(d => d.TrangThaiDon == "Đã hoàn thành")
+                .Where(d => d.TrangThaiDon != null
+                    && (d.TrangThaiDon.Trim() == "Hoàn thành" || d.TrangThaiDon.Trim() == "Đã hoàn thành"))
                 .CountAsync();
             var doanhThuHoanThanh = await _context.DonDatSan
-                .Where(d => d.TrangThaiDon == "Đã hoàn thành")
+                .Where(d => d.TrangThaiDon != null
+                    && (d.TrangThaiDon.Trim() == "Hoàn thành" || d.TrangThaiDon.Trim() == "Đã hoàn thành"))
                 .SumAsync(d => d.TongTien ?? 0);
 
             ViewBag.TongSan = tongSan;
@@ -68,29 +73,27 @@ namespace Pickleball_Smash.Controllers
                 new Dictionary<string, object>
                 {
                     { "label", "Số Đơn Đặt" },
+                    { "type", "bar" },
                     { "data", counts },
+                    { "backgroundColor", "rgba(13, 110, 253, 0.65)" },
                     { "borderColor", "#0d6efd" },
-                    { "backgroundColor", "rgba(13, 110, 253, 0.1)" },
-                    { "tension", 0.4 },
-                    { "fill", true },
-                    { "pointRadius", 5 },
-                    { "pointBackgroundColor", "#0d6efd" },
-                    { "pointBorderColor", "#fff" },
-                    { "pointBorderWidth", 2 },
+                    { "borderWidth", 1 },
+                    { "borderRadius", 6 },
+                    { "maxBarThickness", 44 },
                     { "yAxisID", "y" }
                 },
                 new Dictionary<string, object>
                 {
                     { "label", "Doanh Thu (VNĐ)" },
+                    { "type", "line" },
                     { "data", revenues },
                     { "borderColor", "#198754" },
-                    { "backgroundColor", "rgba(25, 135, 84, 0.1)" },
+                    { "backgroundColor", "#198754" },
                     { "tension", 0.4 },
                     { "fill", false },
-                    { "pointRadius", 5 },
-                    { "pointBackgroundColor", "#198754" },
-                    { "pointBorderColor", "#fff" },
-                    { "pointBorderWidth", 2 },
+                    { "borderWidth", 2 },
+                    { "pointRadius", 0 },
+                    { "pointHoverRadius", 4 },
                     { "yAxisID", "y1" }
                 }
             };
@@ -105,30 +108,61 @@ namespace Pickleball_Smash.Controllers
             var data = await _context.DonDatSan
                 .Include(d => d.SanPickleball)
                 .Include(d => d.NguoiDung)
-                .Select(d => new
+                .Where(d => d.TrangThaiDon != null && new[]
                 {
-                    d.DonDatSanID,
-                    CourtName = d.SanPickleball!.TenSan,
-                    CustomerName = d.NguoiDung!.HoTen,
-                    d.NgayChoi,
-                    d.KhungGio,
-                    d.TongTien,
-                    d.TrangThaiDon,
-                    d.NgayTao
-                })
+                    "Hoàn thành",
+                    "Đã hoàn thành",
+                    "Đã huỷ",
+                    "Đã hủy"
+                }.Contains(d.TrangThaiDon.Trim()))
                 .OrderByDescending(d => d.NgayTao)
                 .ToListAsync();
 
-            var csv = new StringBuilder();
-            csv.AppendLine("Mã Đơn,Sân,Khách Hàng,Ngày Chơi,Khung Giờ,Tổng Tiền (VNĐ),Trạng Thái,Ngày Tạo");
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("Booking Report");
 
+            // Header
+            ws.Cell(1, 1).Value = "Mã Đơn";
+            ws.Cell(1, 2).Value = "Sân";
+            ws.Cell(1, 3).Value = "Khách Hàng";
+            ws.Cell(1, 4).Value = "Ngày Chơi";
+            ws.Cell(1, 5).Value = "Khung Giờ";
+            ws.Cell(1, 6).Value = "Tổng Tiền (VNĐ)";
+            ws.Cell(1, 7).Value = "Trạng Thái";
+            ws.Cell(1, 8).Value = "Ngày Tạo";
+
+            ws.Range(1, 1, 1, 8).Style.Font.Bold = true;
+            ws.Range(1, 1, 1, 8).Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F4F7");
+
+            // Rows
+            var row = 2;
             foreach (var item in data)
             {
-                csv.AppendLine($"{item.DonDatSanID},{item.CourtName},{item.CustomerName},{item.NgayChoi:dd/MM/yyyy},{item.KhungGio},{item.TongTien:F0},{item.TrangThaiDon},{item.NgayTao:dd/MM/yyyy HH:mm}");
+                ws.Cell(row, 1).Value = item.DonDatSanID;
+                ws.Cell(row, 2).Value = item.SanPickleball?.TenSan ?? "-";
+                ws.Cell(row, 3).Value = item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách";
+                ws.Cell(row, 4).Value = item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-";
+                ws.Cell(row, 5).Value = ManagerDonDatSanController.FormatBookingTimeRange(item);
+                ws.Cell(row, 6).Value = (double)(item.TongTien ?? 0m);
+                ws.Cell(row, 7).Value = item.TrangThaiDon ?? "-";
+                ws.Cell(row, 8).Value = item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-";
+                row++;
             }
 
-            var bytes = Encoding.UTF8.GetBytes(csv.ToString());
-            return File(bytes, "text/csv", $"booking-report-{DateTime.Now:yyyy-MM-dd}.csv");
+            // Format money column with thousands separator
+            ws.Column(6).Style.NumberFormat.Format = "#,##0";
+
+            ws.Columns().AdjustToContents();
+            ws.SheetView.FreezeRows(1);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var bytes = stream.ToArray();
+            return File(
+                bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"booking-report-{DateTime.Now:yyyy-MM-dd}.xlsx"
+            );
         }
     }
 }

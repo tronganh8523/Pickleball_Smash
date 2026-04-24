@@ -326,6 +326,9 @@
             });
 
             // Edit booking handlers
+            let currentPricePerHour = 0;
+            let currentEditingBookingId = 0;
+
             function renderTimeSlots(selectedHours, availableSlots = null) {
                 const selectedHoursContainer = document.getElementById('selectedHoursContainer');
                 if (!selectedHoursContainer) {
@@ -356,7 +359,9 @@
                     }
                     
                     slot.className = className;
-                    slot.textContent = `${hour}:00 - ${hour + 1}:00`;
+                    const startText = String(hour).padStart(2, '0');
+                    const endText = String(hour + 1).padStart(2, '0');
+                    slot.textContent = `${startText}:00 - ${endText}:00`;
                     slot.dataset.hour = hour;
                     slot.title = label;
                     
@@ -375,14 +380,21 @@
                 }
             }
 
-            async function loadAvailableSlots(sanId, ngayChoi) {
+            async function loadAvailableSlots(sanId, ngayChoi, excludeBookingId = 0) {
                 if (!sanId || !ngayChoi) return null;
                 
                 try {
-                    const url = '@Url.Action("GetAvailableTimeSlots", "ManagerDonDatSan")' + '?sanId=' + sanId + '&ngayChoi=' + ngayChoi;
+                    const url = '@Url.Action("GetAvailableTimeSlots", "ManagerDonDatSan")'
+                        + '?sanId=' + sanId
+                        + '&ngayChoi=' + ngayChoi
+                        + '&excludeBookingId=' + (excludeBookingId || 0);
                     const response = await fetch(url);
                     const result = await response.json();
-                    return result.success ? result.data : null;
+                    if (!result.success) return null;
+                    const payload = result.data || null;
+                    if (!payload) return null;
+                    currentPricePerHour = Number(payload.pricePerHour || 0);
+                    return payload.slots || null;
                 } catch (error) {
                     console.error("Error loading available slots:", error);
                     return null;
@@ -400,9 +412,7 @@
                 const selectedHours = Array.from(selectedHoursContainer.querySelectorAll('.time-slot.selected')).map(btn => Number(btn.dataset.hour));
                 const hours = selectedHours.length;
                 
-                // For demo, assume 300k per hour. In real app, fetch from server
-                const pricePerHour = 300000;
-                const tongTien = hours * pricePerHour;
+                const tongTien = hours * (currentPricePerHour || 0);
                 editTongTien.textContent = tongTien.toLocaleString('vi-VN') + ' đ';
             }
 
@@ -445,9 +455,11 @@
                         document.getElementById('editTenKhach').value = data.tenKhachHang;
                         document.getElementById('editSoDienThoai').value = data.soDienThoai;
                         document.getElementById('editNgayChoi').value = data.ngayChoi;
+                        currentPricePerHour = Number(data.pricePerHour || 0);
+                        currentEditingBookingId = Number(data.donDatSanID || 0);
 
                         // Load available time slots and render
-                        const availableSlots = await loadAvailableSlots(data.sanID, data.ngayChoi);
+                        const availableSlots = await loadAvailableSlots(data.sanID, data.ngayChoi, currentEditingBookingId);
                         renderTimeSlots(data.selectedHours, availableSlots);
                         calculateTongTien();
 
@@ -466,7 +478,7 @@
                 const sanId = Number(this.value || 0);
                 const ngayChoi = document.getElementById('editNgayChoi')?.value;
                 if (sanId && ngayChoi) {
-                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi);
+                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi, currentEditingBookingId);
                     const selectedHours = Array.from(document.getElementById('selectedHoursContainer')?.querySelectorAll('.time-slot.selected') || [])
                         .map(slot => Number(slot.dataset.hour));
                     renderTimeSlots(selectedHours, availableSlots);
@@ -478,10 +490,9 @@
                 const sanId = Number(document.getElementById('editSanID')?.value || 0);
                 const ngayChoi = this.value;
                 if (sanId && ngayChoi) {
-                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi);
-                    const selectedHours = Array.from(document.getElementById('selectedHoursContainer')?.querySelectorAll('.time-slot.selected') || [])
-                        .map(slot => Number(slot.dataset.hour));
-                    renderTimeSlots(selectedHours, availableSlots);
+                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi, currentEditingBookingId);
+                    // Đổi ngày => reset lựa chọn khung giờ để tránh “khóa” theo lựa chọn cũ
+                    renderTimeSlots([], availableSlots);
                     calculateTongTien();
                 }
             });
@@ -626,7 +637,7 @@
 
                         <div class="mb-3">
                             <label for="editNgayChoi" class="form-label">Ngày Chơi <span class="text-danger">*</span></label>
-                            <input type="date" id="editNgayChoi" name="editNgayChoi" class="form-control" required>
+                            <input type="date" id="editNgayChoi" name="editNgayChoi" class="form-control" required min="@DateTime.Today.ToString("yyyy-MM-dd")">
                         </div>
 
                         <div class="mb-3">
@@ -682,16 +693,44 @@
         }
 
         .time-slot.disabled {
-            background: #e9ecef;
-            color: #6c757d;
-            border-color: #dee2e6;
+            background: repeating-linear-gradient(
+                135deg,
+                #e9ecef 0px,
+                #e9ecef 10px,
+                #dee2e6 10px,
+                #dee2e6 14px
+            ) !important;
+            color: #6c757d !important;
+            border-color: #dee2e6 !important;
             cursor: not-allowed;
-            opacity: 0.6;
+            opacity: 0.9;
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+            text-decoration-color: rgba(108, 117, 125, 0.95);
+            pointer-events: none;
+        }
+
+        .time-slot.disabled.selected {
+            background: repeating-linear-gradient(
+                135deg,
+                #e9ecef 0px,
+                #e9ecef 10px,
+                #dee2e6 10px,
+                #dee2e6 14px
+            ) !important;
+            color: #6c757d !important;
+            border-color: #dee2e6 !important;
         }
 
         .time-slot.disabled:hover {
-            background: #e9ecef;
-            border-color: #dee2e6;
+            background: repeating-linear-gradient(
+                135deg,
+                #e9ecef 0px,
+                #e9ecef 10px,
+                #dee2e6 10px,
+                #dee2e6 14px
+            ) !important;
+            border-color: #dee2e6 !important;
         }
     </style>
 }
