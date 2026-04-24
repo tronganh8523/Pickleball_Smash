@@ -100,6 +100,7 @@
                     <th>Khách hàng</th>
                     <th>Sân</th>
                     <th>Khung giờ</th>
+                    <th>Ngày chơi</th>
                     <th>Tổng tiền</th>
                     <th>Trạng thái</th>
                     <th>Ngày tạo</th>
@@ -118,6 +119,7 @@
                             <td>
                                 @Pickleball_Smash.Controllers.ManagerDonDatSanController.FormatBookingTimeRange(item)
                             </td>
+                            <td>@(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</td>
                             <td>@((item.TongTien ?? 0).ToString("N0")) đ</td>
                             <td>
                                 @{
@@ -190,7 +192,7 @@
                 else
                 {
                     <tr>
-                        <td colspan="8" class="text-center">Chưa có dữ liệu đơn đặt sân.</td>
+                        <td colspan="9" class="text-center">Chưa có dữ liệu đơn đặt sân.</td>
                     </tr>
                 }
             </tbody>
@@ -322,6 +324,374 @@
                     await submitBookingAction(cancelBookingUrl, { bookingID: bookingId, sanID: sanId }, this, "Đã hủy đơn đặt sân.");
                 });
             });
+
+            // Edit booking handlers
+            function renderTimeSlots(selectedHours, availableSlots = null) {
+                const selectedHoursContainer = document.getElementById('selectedHoursContainer');
+                if (!selectedHoursContainer) {
+                    console.error("selectedHoursContainer not found");
+                    return;
+                }
+                
+                selectedHoursContainer.innerHTML = '';
+                
+                // Lọc selectedHours để loại bỏ khung giờ disabled
+                const validSelectedHours = selectedHours.filter(hour => {
+                    const slotData = availableSlots ? availableSlots.find(s => s.hour === hour) : null;
+                    return !slotData || !slotData.disabled;
+                });
+                
+                for (let hour = 5; hour <= 23; hour++) {
+                    const slot = document.createElement('div');
+                    const slotData = availableSlots ? availableSlots.find(s => s.hour === hour) : null;
+                    const isDisabled = slotData && slotData.disabled;
+                    const label = slotData ? slotData.label : 'Có sẵn';
+                    
+                    let className = `time-slot`;
+                    if (validSelectedHours.includes(hour) && !isDisabled) {
+                        className += ' selected';
+                    }
+                    if (isDisabled) {
+                        className += ' disabled';
+                    }
+                    
+                    slot.className = className;
+                    slot.textContent = `${hour}:00 - ${hour + 1}:00`;
+                    slot.dataset.hour = hour;
+                    slot.title = label;
+                    
+                    if (!isDisabled) {
+                        slot.style.cursor = 'pointer';
+                        slot.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            this.classList.toggle('selected');
+                            calculateTongTien();
+                        });
+                    } else {
+                        slot.style.cursor = 'not-allowed';
+                    }
+                    
+                    selectedHoursContainer.appendChild(slot);
+                }
+            }
+
+            async function loadAvailableSlots(sanId, ngayChoi) {
+                if (!sanId || !ngayChoi) return null;
+                
+                try {
+                    const url = '@Url.Action("GetAvailableTimeSlots", "ManagerDonDatSan")' + '?sanId=' + sanId + '&ngayChoi=' + ngayChoi;
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    return result.success ? result.data : null;
+                } catch (error) {
+                    console.error("Error loading available slots:", error);
+                    return null;
+                }
+            }
+
+            function calculateTongTien() {
+                const editSanID = document.getElementById('editSanID');
+                const editTongTien = document.getElementById('editTongTien');
+                const selectedHoursContainer = document.getElementById('selectedHoursContainer');
+                
+                if (!editSanID || !editTongTien || !selectedHoursContainer) return;
+                
+                const sanId = Number(editSanID.value);
+                const selectedHours = Array.from(selectedHoursContainer.querySelectorAll('.time-slot.selected')).map(btn => Number(btn.dataset.hour));
+                const hours = selectedHours.length;
+                
+                // For demo, assume 300k per hour. In real app, fetch from server
+                const pricePerHour = 300000;
+                const tongTien = hours * pricePerHour;
+                editTongTien.textContent = tongTien.toLocaleString('vi-VN') + ' đ';
+            }
+
+            // Add event listener to update total when sanID changes
+            document.getElementById('editSanID')?.addEventListener('change', calculateTongTien);
+
+            document.querySelectorAll(".js-edit-booking").forEach(button => {
+                button.addEventListener("click", async function () {
+                    const bookingId = Number(this.dataset.bookingId || 0);
+                    
+                    if (!bookingId) {
+                        console.error("Invalid booking ID");
+                        return;
+                    }
+
+                    try {
+                        const baseUrl = "@Url.Action("GetBookingForEdit", "ManagerDonDatSan")";
+                        const url = baseUrl + "?id=" + bookingId;
+                        
+                        const response = await fetch(url);
+                        const text = await response.text();
+                        
+                        let result;
+                        try {
+                            result = JSON.parse(text);
+                        } catch(e) {
+                            await showMessage("error", "Lỗi", "Response không phải JSON");
+                            return;
+                        }
+                        
+                        if (!result.success) {
+                            await showMessage("error", "Lỗi", result.message || "Không thể tải thông tin đơn.");
+                            return;
+                        }
+
+                        const data = result.data;
+                        
+                        document.getElementById('editDonDatSanID').value = data.donDatSanID;
+                        document.getElementById('editSanID').value = data.sanID;
+                        document.getElementById('editTenKhach').value = data.tenKhachHang;
+                        document.getElementById('editSoDienThoai').value = data.soDienThoai;
+                        document.getElementById('editNgayChoi').value = data.ngayChoi;
+
+                        // Load available time slots and render
+                        const availableSlots = await loadAvailableSlots(data.sanID, data.ngayChoi);
+                        renderTimeSlots(data.selectedHours, availableSlots);
+                        calculateTongTien();
+
+                        const editBookingModal = document.getElementById('editBookingModal');
+                        if (editBookingModal) {
+                            new bootstrap.Modal(editBookingModal).show();
+                        }
+                    } catch (error) {
+                        await showMessage("error", "Lỗi", "Exception: " + error.message);
+                    }
+                });
+            });
+
+            // Add event listeners to reload available slots when changing san or ngayChoi
+            document.getElementById('editSanID')?.addEventListener('change', async function () {
+                const sanId = Number(this.value || 0);
+                const ngayChoi = document.getElementById('editNgayChoi')?.value;
+                if (sanId && ngayChoi) {
+                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi);
+                    const selectedHours = Array.from(document.getElementById('selectedHoursContainer')?.querySelectorAll('.time-slot.selected') || [])
+                        .map(slot => Number(slot.dataset.hour));
+                    renderTimeSlots(selectedHours, availableSlots);
+                    calculateTongTien();
+                }
+            });
+
+            document.getElementById('editNgayChoi')?.addEventListener('change', async function () {
+                const sanId = Number(document.getElementById('editSanID')?.value || 0);
+                const ngayChoi = this.value;
+                if (sanId && ngayChoi) {
+                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi);
+                    const selectedHours = Array.from(document.getElementById('selectedHoursContainer')?.querySelectorAll('.time-slot.selected') || [])
+                        .map(slot => Number(slot.dataset.hour));
+                    renderTimeSlots(selectedHours, availableSlots);
+                    calculateTongTien();
+                }
+            });
+
+            // Sử dụng event delegation để gắn submit handler cho form
+            // (Form được tạo động nên không thể querySelector trực tiếp)
+            document.addEventListener('submit', async function (e) {
+                // Kiểm tra xem submit event từ editBookingForm hay không
+                if (e.target.id !== 'editBookingForm') return;
+                
+                e.preventDefault();
+
+                // Lấy dữ liệu từ các input trong Modal
+                const donDatSanIDInput = document.getElementById('editDonDatSanID');
+                const sanIDInput = document.getElementById('editSanID');
+                const ngayChoiInput = document.getElementById('editNgayChoi');
+                const selectedHoursContainer = document.getElementById('selectedHoursContainer');
+                const btnSave = document.getElementById('btnSaveUpdate');
+                
+                const donDatSanID = Number(donDatSanIDInput?.value || 0);
+                const sanID = Number(sanIDInput?.value || 0);
+                const ngayChoi = ngayChoiInput?.value || '';
+                const selectedHours = Array.from(selectedHoursContainer?.querySelectorAll('.time-slot.selected:not(.disabled)') || [])
+                    .map(slot => Number(slot.dataset.hour))
+                    .sort((a, b) => a - b);
+
+                // Validation
+                if (!donDatSanID) {
+                    await showMessage("error", "Lỗi", "Không tìm thấy mã đơn. Vui lòng thử lại.");
+                    return;
+                }
+
+                if (!sanID) {
+                    await showMessage("error", "Lỗi", "Vui lòng chọn sân.");
+                    return;
+                }
+
+                if (!ngayChoi) {
+                    await showMessage("error", "Lỗi", "Vui lòng chọn ngày chơi.");
+                    return;
+                }
+
+                if (selectedHours.length === 0) {
+                    await showMessage("error", "Lỗi", "Vui lòng chọn ít nhất một khung giờ có sẵn.");
+                    return;
+                }
+
+                // Disable button during submission
+                const originalText = btnSave?.textContent || "Cập Nhật";
+                if (btnSave) {
+                    btnSave.disabled = true;
+                    btnSave.textContent = "Đang cập nhật...";
+                }
+
+                try {
+                    const updateUrl = '@Url.Action("UpdateBooking", "ManagerDonDatSan")';
+                    
+                    const response = await fetch(updateUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            donDatSanID: donDatSanID,
+                            sanID: sanID,
+                            ngayChoi: ngayChoi,
+                            selectedHours: selectedHours
+                        })
+                    });
+
+                    console.log("Response status:", response.status);
+
+                    let result;
+                    try {
+                        result = await response.json();
+                    } catch(e) {
+                        await showMessage("error", "Lỗi", "Phản hồi không hợp lệ từ máy chủ");
+                        return;
+                    }
+
+                    if (result.success) {
+                        await showMessage("success", "Thành công", "Đã cập nhật đơn đặt sân.");
+                        
+                        // Close modal
+                        const editBookingModal = document.getElementById('editBookingModal');
+                        if (editBookingModal) {
+                            const modal = bootstrap.Modal.getInstance(editBookingModal);
+                            if (modal) modal.hide();
+                        }
+                        
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                    } else {
+                        await showMessage("error", "Lỗi", result.message || "Không thể cập nhật đơn.");
+                    }
+                } catch (error) {
+                    await showMessage("error", "Lỗi", "Không thể kết nối máy chủ. Vui lòng thử lại.");
+                } finally {
+                    if (btnSave) {
+                        btnSave.disabled = false;
+                        btnSave.textContent = originalText;
+                    }
+                }
+            }, false);
         })();
     </script>
+
+    <!-- Edit Booking Modal -->
+    <div class="modal fade" id="editBookingModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sửa Đơn Đặt Sân</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editBookingForm" novalidate>
+                    <div class="modal-body">
+                        <input type="hidden" id="editDonDatSanID" name="editDonDatSanID" required>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tên Khách Hàng <span class="text-muted">(Không sửa được)</span></label>
+                            <input type="text" id="editTenKhach" class="form-control" disabled>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Số Điện Thoại <span class="text-muted">(Không sửa được)</span></label>
+                            <input type="text" id="editSoDienThoai" class="form-control" disabled>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editSanID" class="form-label">Chọn Sân <span class="text-danger">*</span></label>
+                            <select id="editSanID" name="editSanID" class="form-select" required>
+                                <option value="">-- Chọn sân --</option>
+                                @{
+                                    var sanOptions = ViewBag.SanOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+                                    @foreach (var san in sanOptions)
+                                    {
+                                        <option value="@san.Value">@san.Text</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editNgayChoi" class="form-label">Ngày Chơi <span class="text-danger">*</span></label>
+                            <input type="date" id="editNgayChoi" name="editNgayChoi" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Chọn Khung Giờ <span class="text-danger">*</span></label>
+                            <div id="selectedHoursContainer" class="time-slots-grid">
+                                <p class="text-muted">Đang tải khung giờ...</p>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tổng Tiền</label>
+                            <div id="editTongTien" class="form-control" style="background: #f8f9fa; cursor: not-allowed; color: #333; font-weight: 500;">0 đ</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" id="btnSaveUpdate" class="btn btn-primary">
+                            <span class="btn-text">Cập Nhật</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .time-slots-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .time-slot {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            user-select: none;
+        }
+
+        .time-slot:hover {
+            border-color: #0d6efd;
+            background: #f0f7ff;
+        }
+
+        .time-slot.selected {
+            background: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+
+        .time-slot.disabled {
+            background: #e9ecef;
+            color: #6c757d;
+            border-color: #dee2e6;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .time-slot.disabled:hover {
+            background: #e9ecef;
+            border-color: #dee2e6;
+        }
+    </style>
 }

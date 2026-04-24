@@ -10,4 +10,12 @@ namespace Pickleball_Smash.Models.ViewModels
         public string? GioKetThuc { get; set; }
         public List<int>? SelectedHours { get; set; }
     }
+
+    public class ManagerUpdateBookingRequest
+    {
+        public int DonDatSanID { get; set; }
+        public int SanID { get; set; }
+        public string? NgayChoi { get; set; }
+        public List<int>? SelectedHours { get; set; }
+    }
 }

@@ -5,6 +5,28 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/pages/admin-dashboard.css" asp-append-version="true" />
+    <style>
+        .chart-wrapper {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+    </style>
 }
 
 <div class="container-fluid py-4">
@@ -18,7 +40,7 @@
 
     <!-- Thống kê -->
     <div class="row mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-left-success shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-success text-uppercase mb-1">Sân Pickleball</div>
@@ -27,7 +49,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-left-info shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-info text-uppercase mb-1">Người Dùng</div>
@@ -36,7 +58,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-left-warning shadow h-100 py-2">
                 <div class="card-body">
                     <div class="text-warning text-uppercase mb-1">Đơn Đặt Sân</div>
@@ -44,10 +66,110 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-primary text-uppercase mb-1">Đơn Hoàn Thành</div>
+                    <div class="h3 mb-0"><strong>@ViewBag.DonHoanThanh</strong></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="col-md-6">
-        <a href="@Url.Action("Index", "Home")" class="btn btn-secondary btn-block mb-3">
-            <i class="fas fa-door-open"></i> Trang Chủ
-        </a>
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="text-danger text-uppercase mb-1">Doanh Thu Hoàn Thành</div>
+                    <div class="h3 mb-0"><strong>@ViewBag.DoanhThuHoanThanh.ToString("N0")</strong> đ</div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Biểu đồ -->
+    <div class="chart-wrapper">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div class="chart-title">
+                <i class="fas fa-chart-line"></i> Báo Cáo Đặt Sân 7 Ngày Gần Nhất
+            </div>
+            <a href="@Url.Action("DownloadBookingReport", "Admin")" class="btn btn-sm btn-success">
+                <i class="fas fa-download"></i> Tải báo cáo
+            </a>
+        </div>
+        <div class="chart-container">
+            <canvas id="bookingChart"></canvas>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <!-- Navigation buttons removed as per request -->
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script>
+        // Load booking chart
+        async function loadBookingChart() {
+            try {
+                const response = await fetch('@Url.Action("GetBookingChartData", "Admin")');
+                const data = await response.json();
+
+                const ctx = document.getElementById('bookingChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: { size: 12 },
+                                    usePointStyle: true
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true,
+                                title: { display: true, text: 'Số Đơn Đặt' },
+                                ticks: { font: { size: 11 } }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: true,
+                                title: { display: true, text: 'Doanh Thu (VNĐ)' },
+                                ticks: { font: { size: 11 } },
+                                grid: { drawOnChartArea: false }
+                            },
+                            x: {
+                                ticks: { font: { size: 11 } }
+                            }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Error loading booking chart:', e);
+            }
+        }
+
+        // Load chart on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            loadBookingChart();
+        });
+    </script>
+}
