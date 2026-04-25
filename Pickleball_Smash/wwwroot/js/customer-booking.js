@@ -419,12 +419,26 @@ async function fetchDetailSlots() {
     if (!grid) return;
     grid.innerHTML = '';
 
-    for (let i = 5; i < 22; i++) {
+    // Lấy ngày hiện tại để kiểm tra giờ quá khứ
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    const isToday = date === todayStr;
+    const currentHour = today.getHours();
+
+    for (let i = 5; i < 24; i++) {
         const slot = document.createElement('div');
         slot.className = 'time-slot';
+
+        // Điều kiện kiểm tra xem có phải là giờ đã qua trong ngày hôm nay không
+        const isPastHour = isToday && (i <= currentHour);
+
         if (dtBookedSlots.includes(i)) {
             slot.classList.add('slot-busy');
             slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Bận)`;
+        } else if (isPastHour) {
+            // Hiển thị giờ đã qua (dùng chung class disabled với popup đặt sân)
+            slot.classList.add('disabled');
+            slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Đã qua)`;
         } else {
             slot.classList.add('slot-available');
             slot.innerHTML = `${i}:00 - ${i + 1}:00 <br> (Trống)`;
@@ -432,7 +446,6 @@ async function fetchDetailSlots() {
         grid.appendChild(slot);
     }
 }
-
 // ================= PROFILE & EDIT PROFILE =================
 async function openProfileModal() {
     if (!window.isLoggedIn) return;
