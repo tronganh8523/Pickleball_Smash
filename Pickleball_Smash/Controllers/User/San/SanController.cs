@@ -37,6 +37,13 @@ namespace Pickleball_Smash.Controllers.User.San
 
             foreach (var san in courts)
             {
+                // 1. Nếu Admin đã set trạng thái là Bận (hoặc Bảo trì) trong DB, thì giữ nguyên và bỏ qua việc đếm giờ
+                if (san.TrangThai == "Bận" || san.TrangThai == "Bảo trì" || san.TrangThai == "Ngừng hoạt động")
+                {
+                    continue; // Chuyển sang kiểm tra sân tiếp theo
+                }
+
+                // 2. Nếu Admin để là "Trống", thì mới bắt đầu tính toán tự động xem hôm nay khách đã đặt full lịch chưa
                 var bookings = await _context.DonDatSan
                     .Where(d => d.SanID == san.SanID
                              && d.NgayChoi == today
@@ -50,8 +57,12 @@ namespace Pickleball_Smash.Controllers.User.San
                         soGioDaDat += b.KhungGio.Split(',').Length;
                 }
 
-                if (soGioDaDat >= 17) san.TrangThai = "Bận";
-                else san.TrangThai = "Trống";
+                // Nếu hôm nay khách đã đặt kín 17 tiếng (từ 5h-22h), tự động chuyển sang Bận
+                if (soGioDaDat >= 17)
+                {
+                    san.TrangThai = "Bận";
+                }
+                // Không cần hàm 'else san.TrangThai = "Trống"' nữa vì DB mặc định đã là Trống rồi
             }
 
             return View(courts);
@@ -84,6 +95,28 @@ namespace Pickleball_Smash.Controllers.User.San
                 }
             }
             return Json(bookedHours.Distinct());
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetCourtCustomPrices(int sanId)
+        {
+            // Lấy danh sách các giá tùy chỉnh của sân này
+            var customPrices = await _context.BangGiaKhungGio
+                .Where(p => p.SanID == sanId)
+                .ToListAsync();
+
+            // Chuyển đổi thành dạng Dictionary { "12": 200000, "5": 100000 } để Javascript dễ đọc
+            var dict = new Dictionary<string, decimal>();
+            foreach (var item in customPrices)
+            {
+                // Chú ý: Đảm bảo class Model BangGiaKhungGio.cs của bạn có thuộc tính KhungGio (int)
+                if (item.KhungGio != null)
+                {
+                    dict[item.KhungGio.ToString()] = item.GiaTien ?? 0m;
+                }
+            }
+
+            return Json(dict);
         }
 
         [HttpPost]
@@ -299,29 +332,120 @@ namespace Pickleball_Smash.Controllers.User.San
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized();
 
-            // 1. Mở rộng danh sách các trạng thái hợp lệ để hiển thị trong lịch sử
             var validStatuses = new[] { "Chờ xác nhận", "Đã xác nhận", "Hoàn thành", "Đã thanh toán" };
 
+            // Lấy lịch sử đơn đặt sân
+            // 1. Thêm Include(d => d.NguoiDung) để lấy thông tin khách hàng
             var history = await _context.DonDatSan
                 .Include(d => d.SanPickleball)
-                .Include(d => d.ThanhToans) // 2. Thêm Include này để lấy dữ liệu từ bảng ThanhToan
+                .Include(d => d.ThanhToans)
+                .Include(d => d.NguoiDung)
                 .Where(d => d.NguoiDungID == userId && d.TrangThaiDon != null && validStatuses.Contains(d.TrangThaiDon))
                 .OrderByDescending(d => d.NgayTao)
                 .ToListAsync();
 
-            var result = history.Select(d => new {
-                maHoaDon = d.DonDatSanID.ToString("D3"),
-                ngayThanhToan = d.ThanhToans != null && d.ThanhToans.Any()
-                    ? d.ThanhToans.First().NgayThanhToan?.ToString("dd/MM/yyyy HH:mm")
-                    : (d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy HH:mm") : ""),
-                loaiSan = d.SanPickleball != null ? d.SanPickleball.LoaiSan : string.Empty,
-                khungGio = FormatKhungGioHienThi(d.KhungGio),
-                tongTien = d.TongTien,
-                soTienGiam = d.SoTienGiam ?? 0, // Thêm dòng này để lấy tiền giảm giá cho Hóa đơn
-                trangThai = d.TrangThaiDon
+            // Lấy danh sách tất cả đánh giá của user này
+            var userReviews = await _context.DanhGia
+                .Where(r => r.NguoiDungID == userId)
+                .ToListAsync();
+
+            var result = history.Select(d => {
+                var review = userReviews
+        .FirstOrDefault(r => r.DonDatSanID == d.DonDatSanID);
+
+                return new
+                {
+                    donDatSanId = d.DonDatSanID,
+                    sanId = d.SanID,
+                    maHoaDon = d.DonDatSanID.ToString("D3"),
+                    // BỔ SUNG CÁC TRƯỜNG THÔNG TIN MỚI CHO HÓA ĐƠN
+                    khachHang = d.NguoiDung != null ? d.NguoiDung.HoTen : "Khách hàng",
+                    soDienThoai = d.NguoiDung != null ? d.NguoiDung.SDT : "",
+                    tenSan = d.SanPickleball != null ? d.SanPickleball.TenSan : "",
+                    loaiSan = d.SanPickleball != null ? d.SanPickleball.LoaiSan : string.Empty,
+                    ngayChoiDisplay = d.NgayChoi.HasValue ? d.NgayChoi.Value.ToString("dd/MM/yyyy") : "",
+                    khungGio = FormatKhungGioHienThi(d.KhungGio),
+                    ngayThanhToan = d.ThanhToans != null && d.ThanhToans.Any()
+                        ? d.ThanhToans.First().NgayThanhToan?.ToString("dd/MM/yyyy HH:mm")
+                        : (d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy HH:mm") : ""),
+                    phuongThucThanhToan = d.ThanhToans != null && d.ThanhToans.Any() ? d.ThanhToans.First().PhuongThuc : "Chuyển khoản",
+                    // CÁC TRƯỜNG CŨ KẾT HỢP
+                    tongTien = d.TongTien,
+                    soTienGiam = d.SoTienGiam ?? 0,
+                    trangThai = d.TrangThaiDon,
+                    daDanhGia = review != null,
+                    soSao = review != null ? review.SoSao : 5,
+                    binhLuan = review != null ? review.BinhLuan : "",
+                    ngayChoi = d.NgayChoi.HasValue ? d.NgayChoi.Value.ToString("yyyy-MM-dd") : "",
+                    khungGioGoc = d.KhungGio
+                };
             }).ToList();
 
             return Json(result);
+        }
+        [HttpPost]
+        public async Task<IActionResult> SubmitReview([FromBody] ReviewRequest request)
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Json(new { success = false, message = "Vui lòng đăng nhập để đánh giá!" });
+
+            var existingReview = await _context.DanhGia.FirstOrDefaultAsync(r => r.DonDatSanID == request.DonDatSanID);
+            if (existingReview != null) return Json(new { success = false, message = "Đơn này đã được đánh giá rồi!" });
+
+            var review = new DanhGia
+            {
+                NguoiDungID = userId.Value,
+                SanID = request.SanID,
+                DonDatSanID = request.DonDatSanID,
+                SoSao = request.SoSao,
+                BinhLuan = request.BinhLuan,
+                NgayDanhGia = DateTime.Now
+            };
+
+            _context.DanhGia.Add(review);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        public class ReviewRequest
+        {
+            public int SanID { get; set; }
+            public int DonDatSanID { get; set; }
+            public int SoSao { get; set; }
+            public string? BinhLuan { get; set; }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetCourtReviews(int sanId)
+        {
+            // Lấy toàn bộ đánh giá của sân này, bao gồm cả thông tin người dùng
+            var reviews = await _context.DanhGia
+                .Include(r => r.NguoiDung)
+                .Where(r => r.SanID == sanId)
+                .OrderByDescending(r => r.NgayDanhGia)
+                .Select(r => new {
+                    hoTen = r.NguoiDung != null && !string.IsNullOrEmpty(r.NguoiDung.HoTen) ? r.NguoiDung.HoTen : "Khách hàng ẩn danh",
+                    soSao = r.SoSao ?? 5,
+                    binhLuan = r.BinhLuan,
+                    ngayDanhGia = r.NgayDanhGia.HasValue ? r.NgayDanhGia.Value.ToString("yyyy-MM-dd HH:mm") : ""
+                })
+                .ToListAsync();
+
+            // Tính toán các thông số thống kê
+            var totalReviews = reviews.Count;
+            var avgRating = totalReviews > 0 ? Math.Round(reviews.Average(r => r.soSao), 1) : 0;
+
+            var starCounts = new
+            {
+                s5 = reviews.Count(r => r.soSao == 5),
+                s4 = reviews.Count(r => r.soSao == 4),
+                s3 = reviews.Count(r => r.soSao == 3),
+                s2 = reviews.Count(r => r.soSao == 2),
+                s1 = reviews.Count(r => r.soSao == 1)
+            };
+
+            return Json(new { success = true, data = reviews, stats = new { total = totalReviews, avg = avgRating, counts = starCounts } });
         }
         [HttpPost]
         public async Task<IActionResult> CancelPendingBookings([FromBody] List<int> bookingIds)

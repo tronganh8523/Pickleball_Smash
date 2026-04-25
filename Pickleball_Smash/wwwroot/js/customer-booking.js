@@ -7,6 +7,7 @@ let currentDetailCourtId = null;
 let appliedVoucherCode = '';
 let appliedDiscountAmount = 0;
 let userHistoryData = [];
+let currentCourtPrices = {};
 
 function openModal(id) {
     document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
@@ -18,6 +19,11 @@ function closeModal(id) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const bkDateInput = document.getElementById('bkDate');
+    const dtDateInput = document.getElementById('dtDate');
+    if (bkDateInput) bkDateInput.setAttribute('min', todayStr);
+    if (dtDateInput) dtDateInput.setAttribute('min', todayStr);
     document.querySelectorAll('.btn-book').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -38,6 +44,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             const btnData = e.currentTarget;
             currentDetailCourtId = btnData.getAttribute('data-id');
+
+            if (!currentDetailCourtId) return;
+            e.preventDefault();
+
+            // Lấy trạng thái từ thuộc tính data-status đã thêm ở bước 2
+            const status = btnData.getAttribute('data-status');
+            const dtBtnBook = document.getElementById('dtBtnBook');
+            if (dtBtnBook) {
+                if (status === "Bận") {
+                    dtBtnBook.innerText = "Sân đang bận";
+                    dtBtnBook.disabled = true;
+                    dtBtnBook.classList.add('disabled');
+                } else {
+                    dtBtnBook.innerText = "Đặt Sân";
+                    dtBtnBook.disabled = false;
+                    dtBtnBook.classList.remove('disabled');
+                }
+            }
 
             document.getElementById('dtName').innerText = btnData.getAttribute('data-name');
             document.getElementById('dtType').innerText = btnData.getAttribute('data-type');
@@ -95,8 +119,15 @@ async function fetchBookedSlots() {
     const date = document.getElementById('bkDate').value;
     if (!sanId || !date) return;
 
-    const res = await fetch(`/San/GetBookedSlots?sanId=${sanId}&date=${date}`);
-    bookedSlots = await res.json();
+    // Gọi song song 2 API: Lấy giờ bận & Lấy bảng giá tùy chỉnh
+    const [resBooked, resPrices] = await Promise.all([
+        fetch(`/San/GetBookedSlots?sanId=${sanId}&date=${date}`),
+        fetch(`/San/GetCourtCustomPrices?sanId=${sanId}`)
+    ]);
+
+    bookedSlots = await resBooked.json();
+    currentCourtPrices = await resPrices.json(); // Nhận bảng giá từ C#
+
     selectedSlots = selectedSlots.filter(s => !bookedSlots.includes(s));
 
     renderTimeSlots();
@@ -165,7 +196,7 @@ function calcTotal() {
     if (!sanSelect || sanSelect.selectedIndex === -1) return;
 
     const opt = sanSelect.options[sanSelect.selectedIndex];
-    const pricePerHour = opt.value ? parseFloat(opt.getAttribute('data-price')) : 0;
+    const basePrice = opt.value ? parseFloat(opt.getAttribute('data-price')) : 0;
     const name = opt.value ? opt.getAttribute('data-name') : '...';
     const type = opt.value ? opt.getAttribute('data-type') : '...';
 
@@ -179,7 +210,20 @@ function calcTotal() {
         document.getElementById('sumTime').innerText = '...';
     }
 
-    finalPrice = pricePerHour * selectedSlots.length;
+    // --- THUẬT TOÁN TÍNH TIỀN MỚI ---
+    finalPrice = 0;
+    selectedSlots.forEach(hour => {
+        const hourStr = hour.toString();
+        // Kiểm tra xem khung giờ này có được Admin setup giá riêng không
+        if (currentCourtPrices && currentCourtPrices[hourStr] !== undefined) {
+            finalPrice += parseFloat(currentCourtPrices[hourStr]);
+        } else {
+            // Nếu không có, dùng giá cơ bản của sân
+            finalPrice += basePrice;
+        }
+    });
+    // -------------------------------
+
     if (appliedDiscountAmount > finalPrice) {
         appliedDiscountAmount = finalPrice;
     }
@@ -187,6 +231,14 @@ function calcTotal() {
     const tongTienSauGiam = Math.max(0, finalPrice - appliedDiscountAmount);
     document.getElementById('sumTotalOrigin').innerText = finalPrice.toLocaleString('vi-VN') + 'đ';
     document.getElementById('sumTotalFinal').innerText = tongTienSauGiam.toLocaleString('vi-VN') + 'đ';
+    const discountRow = document.getElementById('discountDisplayRow');
+    const discountSpan = document.getElementById('sumDiscountAmount');
+    if (appliedDiscountAmount > 0) {
+        if (discountRow) discountRow.style.display = 'flex';
+        if (discountSpan) discountSpan.innerText = '-' + appliedDiscountAmount.toLocaleString('vi-VN') + 'đ';
+    } else {
+        if (discountRow) discountRow.style.display = 'none';
+    }
 }
 
 function resetVoucherState() {
@@ -196,6 +248,8 @@ function resetVoucherState() {
     if (voucherInput) {
         voucherInput.value = '';
     }
+    const discountRow = document.getElementById('discountDisplayRow');
+    if (discountRow) discountRow.style.display = 'none';
 }
 
 function applyVoucher() {
@@ -206,15 +260,11 @@ function applyVoucher() {
         return;
     }
 
-    // Nếu đã có đơn, sử dụng endpoint cũ
     if (currentBookingIds.length > 0) {
         fetch('/San/ValidateVoucher', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                bookingIds: currentBookingIds,
-                voucherCode: voucherCode
-            })
+            body: JSON.stringify({ bookingIds: currentBookingIds, voucherCode: voucherCode })
         })
             .then(res => res.json())
             .then(data => {
@@ -225,13 +275,14 @@ function applyVoucher() {
 
                 appliedVoucherCode = data.voucherCode || voucherCode;
                 appliedDiscountAmount = Number(data.discountAmount || 0);
-                document.getElementById('sumTotalOrigin').innerText = finalPrice.toLocaleString('vi-VN') + 'đ';
-                document.getElementById('sumTotalFinal').innerText = Number(data.finalAmount || 0).toLocaleString('vi-VN') + 'đ';
+
+                // Tự động gọi lại hàm tính tiền để update toàn bộ giao diện
+                calcTotal();
+
                 alert(data.message || 'Áp voucher thành công.');
             })
             .catch(() => alert('Không thể kiểm tra voucher lúc này.'));
     }
-    // Nếu chưa tạo đơn nhưng đã chọn khung giờ, sử dụng endpoint mới (trước khi đặt sân)
     else if (selectedSlots.length > 0 && finalPrice > 0) {
         fetch('/San/ValidateVoucherBeforeBooking', {
             method: 'POST',
@@ -251,8 +302,10 @@ function applyVoucher() {
 
                 appliedVoucherCode = data.voucherCode || voucherCode;
                 appliedDiscountAmount = Number(data.discountAmount || 0);
-                document.getElementById('sumTotalOrigin').innerText = finalPrice.toLocaleString('vi-VN') + 'đ';
-                document.getElementById('sumTotalFinal').innerText = Number(data.finalAmount || 0).toLocaleString('vi-VN') + 'đ';
+
+                // Tự động gọi lại hàm tính tiền để update toàn bộ giao diện
+                calcTotal();
+
                 alert(data.message || 'Áp voucher thành công.');
             })
             .catch(() => alert('Không thể kiểm tra voucher lúc này.'));
@@ -262,7 +315,6 @@ function applyVoucher() {
         return;
     }
 }
-
 function submitBooking() {
     if (!document.getElementById('bkDate').value || !document.getElementById('bkSan').value || selectedSlots.length === 0) {
         alert('Vui lòng chọn ngày, sân và ít nhất 1 khung giờ hợp lệ!');
@@ -370,41 +422,137 @@ function confirmPayment() {
         });
 }
 
+// ================= LOGIC THANH TOÁN & LỊCH SỬ =================
 function loadHistory() {
     if (!window.isLoggedIn) { alert("Vui lòng đăng nhập!"); return; }
 
-    fetch('/San/GetBookingHistory')
+    fetch('/San/GetBookingHistory', { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
-            const tbody = document.getElementById('historyTableBody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            // Lưu dữ liệu vào biến toàn cục để dùng cho popup hóa đơn
+            // Lưu dữ liệu gốc vào biến toàn cục
             userHistoryData = data;
 
-            data.forEach((item, index) => {
-                // Chỉ hiện nút hóa đơn cho các đơn Đã xác nhận, Đã thanh toán, Hoàn thành
-                const showInvoice = ['Đã thanh toán', 'Hoàn thành', 'Đã xác nhận'].includes(item.trangThai);
-                const invoiceBtn = showInvoice
-                    ? `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto;" onclick="viewCustomerInvoice(${index})">
-                         <i class="fas fa-file-invoice"></i> Hóa đơn
-                       </button>`
-                    : '-';
+            // Xóa bộ lọc và in ra toàn bộ bảng
+            resetHistoryFilters();
 
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${item.maHoaDon}</td>
-                        <td>${item.ngayThanhToan}</td>
-                        <td>${item.loaiSan}</td>
-                        <td>${item.khungGio}</td>
-                        <td>${item.tongTien.toLocaleString('vi-VN')}đ</td>
-                        <td><span class="status-paid">${item.trangThai}</span></td>
-                        <td style="text-align: center;">${invoiceBtn}</td>
-                    </tr>`;
-            });
             openModal('historyModal');
         });
+}
+
+function renderHistoryTable(dataToRender) {
+    const tbody = document.getElementById('historyTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    // Nếu lọc không ra kết quả
+    if (dataToRender.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 25px; color: #666;">Không tìm thấy đơn đặt sân nào phù hợp.</td></tr>`;
+        return;
+    }
+
+    dataToRender.forEach((item) => {
+        // CẦN THIẾT: Tìm lại index gốc của item trong userHistoryData 
+        // để khi bấm nút Đánh Giá / Hóa Đơn không bị gọi sai sân
+        const originalIndex = userHistoryData.indexOf(item);
+        let actionHtml = '';
+
+        if (['Đã thanh toán', 'Hoàn thành', 'Đã xác nhận'].includes(item.trangThai)) {
+            actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto;" onclick="viewCustomerInvoice(${originalIndex})">
+                             <i class="fas fa-file-invoice"></i> Hóa đơn
+                           </button>`;
+        }
+
+        if (item.trangThai === 'Hoàn thành') {
+            if (item.daDanhGia) {
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #17a2b8; border: none;" onclick="openReviewModal(${originalIndex})">
+                                 <i class="fas fa-eye"></i> Xem đánh giá
+                               </button>`;
+            } else {
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #f59f00; border: none;" onclick="openReviewModal(${originalIndex})">
+                                 <i class="fas fa-star"></i> Đánh giá
+                               </button>`;
+            }
+        }
+
+        if (!actionHtml) actionHtml = '-';
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${item.maHoaDon}</td>
+                <td>${item.ngayThanhToan}</td>
+                <td>${item.loaiSan}</td>
+                <td>${item.khungGio}</td>
+                <td>${item.tongTien.toLocaleString('vi-VN')}đ</td>
+                <td><span class="status-paid">${item.trangThai}</span></td>
+                <td style="text-align: center;">${actionHtml}</td>
+            </tr>`;
+    });
+}
+
+function filterHistory() {
+    const dateFilter = document.getElementById('histFilterDate').value;
+    const startFilter = document.getElementById('histFilterStartTime').value;
+    const endFilter = document.getElementById('histFilterEndTime').value;
+    const typeFilter = document.getElementById('histFilterType').value;
+
+    // RÀNG BUỘC 1: Phải chọn đủ 2 ô giờ
+    if ((startFilter && !endFilter) || (!startFilter && endFilter)) {
+        alert("Vui lòng chọn đầy đủ cả 'Giờ bắt đầu' và 'Giờ kết thúc' để lọc theo khung giờ!");
+        return; // Dừng hệ thống, không lọc nữa
+    }
+
+    // RÀNG BUỘC 2: Giờ kết thúc phải lớn hơn giờ bắt đầu
+    if (startFilter && endFilter) {
+        if (parseInt(startFilter) >= parseInt(endFilter)) {
+            alert("Lỗi: Giờ kết thúc phải lớn hơn Giờ bắt đầu!");
+            return;
+        }
+    }
+
+    let filtered = userHistoryData;
+
+    // Lọc theo ngày chơi
+    if (dateFilter) {
+        filtered = filtered.filter(x => x.ngayChoi === dateFilter);
+    }
+
+    // Lọc theo loại sân
+    if (typeFilter) {
+        filtered = filtered.filter(x => x.loaiSan === typeFilter);
+    }
+
+    // Lọc theo giờ (Tìm các đơn nằm TRONG khoảng thời gian đã chọn)
+    if (startFilter && endFilter) {
+        const fStart = parseInt(startFilter);
+        const fEnd = parseInt(endFilter);
+
+        filtered = filtered.filter(x => {
+            if (!x.khungGioGoc) return false;
+
+            // Chuyển chuỗi "14,15,16" thành mảng số để so sánh
+            const hours = x.khungGioGoc.split(',').map(Number).sort((a, b) => a - b);
+            if (hours.length === 0) return false;
+
+            const startHour = hours[0];
+            const endHour = hours[hours.length - 1] + 1; // Khung 16 nghĩa là 16:00-17:00, nên kết thúc là 17
+
+            // Điều kiện: Đơn đặt sân phải nằm hoàn toàn trong khoảng giờ người dùng chọn
+            // Ví dụ: Chọn lọc từ 05:00 đến 12:00 -> Đơn 07:00 đến 09:00 sẽ hợp lệ (7 >= 5 và 9 <= 12)
+            return startHour >= fStart && endHour <= fEnd;
+        });
+    }
+
+    renderHistoryTable(filtered);
+}
+
+function resetHistoryFilters() {
+    document.getElementById('histFilterDate').value = '';
+    document.getElementById('histFilterStartTime').value = '';
+    document.getElementById('histFilterEndTime').value = '';
+    document.getElementById('histFilterType').value = '';
+
+    // In lại toàn bộ dữ liệu gốc
+    renderHistoryTable(userHistoryData);
 }
 
 // ================= LOGIC CHI TIẾT SÂN =================
@@ -703,11 +851,16 @@ function viewCustomerInvoice(index) {
     const item = userHistoryData[index];
     if (!item) return;
 
-    // Gắn dữ liệu vào Modal
+    // Gắn dữ liệu đầy đủ vào Modal
     document.getElementById('cusInvId').innerText = item.maHoaDon;
-    document.getElementById('cusInvDate').innerText = item.ngayThanhToan;
-    document.getElementById('cusInvCourt').innerText = item.loaiSan;
+    document.getElementById('cusInvCustomer').innerText = item.khachHang;
+    document.getElementById('cusInvPhone').innerText = item.soDienThoai;
+    document.getElementById('cusInvCourtName').innerText = item.tenSan;
+    document.getElementById('cusInvCourtType').innerText = item.loaiSan;
+    document.getElementById('cusInvPlayDate').innerText = item.ngayChoiDisplay;
     document.getElementById('cusInvTime').innerText = item.khungGio;
+    document.getElementById('cusInvDate').innerText = item.ngayThanhToan;
+    document.getElementById('cusInvMethod').innerText = item.phuongThucThanhToan;
 
     // Tính toán Tạm tính và Giảm giá
     const finalAmount = item.tongTien;
@@ -767,4 +920,161 @@ function downloadInvoicePDF(invoiceId) {
             btnPrint.style.pointerEvents = 'auto';
             alert("Quá trình xuất PDF bị gián đoạn. Vui lòng thử lại!");
         });
+}
+// ================= LOGIC ĐÁNH GIÁ SÂN =================
+let currentReviewSanId = null;
+let currentReviewDonDatSanId = null;
+
+function openReviewModal(index) {
+    const item = userHistoryData[index];
+    if (!item) return;
+
+    currentReviewSanId = item.sanId;
+    currentReviewDonDatSanId = item.donDatSanId;
+
+    const commentBox = document.getElementById('reviewComment');
+    const submitBtn = document.getElementById('btnSubmitReview');
+    const starContainer = document.getElementById('starContainer');
+
+    if (item.daDanhGia) {
+        // CHẾ ĐỘ CHỈ XEM (READ-ONLY)
+        commentBox.value = item.binhLuan || 'Không có bình luận.';
+        commentBox.readOnly = true;
+        commentBox.style.backgroundColor = '#f4f6f8'; // Làm xám ô text
+
+        const starInput = document.getElementById('star' + item.soSao);
+        if (starInput) starInput.checked = true;
+
+        starContainer.style.pointerEvents = 'none'; // Khóa click chọn sao
+        submitBtn.style.display = 'none'; // Ẩn nút gửi
+    } else {
+        // CHẾ ĐỘ VIẾT ĐÁNH GIÁ MỚI
+        commentBox.value = '';
+        commentBox.readOnly = false;
+        commentBox.style.backgroundColor = '#e1e1e1';
+
+        document.getElementById('star5').checked = true; // Mặc định 5 sao
+
+        starContainer.style.pointerEvents = 'auto'; // Cho phép click
+        submitBtn.style.display = 'block'; // Hiện nút gửi
+    }
+
+    closeModal('historyModal');
+    openModal('reviewModal');
+}
+
+function submitReview() {
+    const comment = document.getElementById('reviewComment').value.trim();
+    const stars = document.querySelector('.star-rating input:checked');
+    const starValue = stars ? stars.value : 5;
+
+    fetch('/San/SubmitReview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            SanID: currentReviewSanId,
+            DonDatSanID: currentReviewDonDatSanId,
+            SoSao: parseInt(starValue),
+            BinhLuan: comment
+        })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("Cảm ơn bạn đã gửi đánh giá!");
+                closeModal('reviewModal');
+                loadHistory();
+                openModal('historyModal');
+            } else {
+                alert(data.message || "Có lỗi xảy ra, vui lòng thử lại.");
+            }
+        })
+        .catch(() => alert("Không thể kết nối đến máy chủ!"));
+}
+// ================= LOGIC XEM DANH SÁCH ĐÁNH GIÁ =================
+let currentCourtReviewsData = [];
+
+function openCourtReviewsModal() {
+    if (!currentDetailCourtId) return;
+
+    fetch(`/San/GetCourtReviews?sanId=${currentDetailCourtId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                currentCourtReviewsData = data.data;
+
+                // Cập nhật thống kê Header
+                document.getElementById('rvTotalAvg').innerText = data.stats.avg.toFixed(1);
+                document.getElementById('rvFilterAll').innerText = `Tất cả (${data.stats.total})`;
+                document.getElementById('rvFilter5').innerText = `5 Sao (${data.stats.counts.s5})`;
+                document.getElementById('rvFilter4').innerText = `4 Sao (${data.stats.counts.s4})`;
+                document.getElementById('rvFilter3').innerText = `3 Sao (${data.stats.counts.s3})`;
+                document.getElementById('rvFilter2').innerText = `2 Sao (${data.stats.counts.s2})`;
+                document.getElementById('rvFilter1').innerText = `1 Sao (${data.stats.counts.s1})`;
+
+                // Mặc định chọn nút "Tất cả"
+                const filterBtns = document.querySelectorAll('.btn-filter-star');
+                filterBtns.forEach(b => b.classList.remove('active'));
+                document.getElementById('rvFilterAll').classList.add('active');
+
+                // Render danh sách
+                renderReviewListHTML(currentCourtReviewsData);
+
+                closeModal('detailModal');
+                openModal('courtReviewsModal');
+            } else {
+                alert("Không thể lấy danh sách đánh giá lúc này.");
+            }
+        })
+        .catch(() => alert("Lỗi kết nối đến máy chủ!"));
+}
+
+function filterReviewsByStar(star, btnElement) {
+    // Đổi màu nút được click
+    document.querySelectorAll('.btn-filter-star').forEach(b => b.classList.remove('active'));
+    btnElement.classList.add('active');
+
+    // Lọc mảng
+    if (star === 0) {
+        renderReviewListHTML(currentCourtReviewsData);
+    } else {
+        const filtered = currentCourtReviewsData.filter(r => r.soSao === star);
+        renderReviewListHTML(filtered);
+    }
+}
+
+function renderReviewListHTML(reviews) {
+    const container = document.getElementById('courtReviewsList');
+    container.innerHTML = '';
+
+    if (reviews.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 40px; color:#888;">Chưa có đánh giá nào.</div>';
+        return;
+    }
+
+    reviews.forEach(r => {
+        // Tạo HTML cho số sao
+        let starsHtml = '';
+        for (let i = 1; i <= 5; i++) {
+            starsHtml += i <= r.soSao ? '<i class="fas fa-star"></i>' : '<i class="far fa-star" style="color: #ddd;"></i>';
+        }
+
+        // Ẩn bớt ký tự tên người dùng (Giống Shopee: Ng****nh)
+        let maskedName = r.hoTen;
+        if (maskedName.length > 2 && maskedName !== "Khách hàng ẩn danh") {
+            maskedName = maskedName.substring(0, 2) + "****" + maskedName.substring(maskedName.length - 2);
+        }
+
+        container.innerHTML += `
+            <div class="review-item">
+                <div class="review-avatar"><i class="fas fa-user"></i></div>
+                <div class="review-content">
+                    <div class="review-author">${maskedName}</div>
+                    <div class="review-stars">${starsHtml}</div>
+                    <div class="review-date">${r.ngayDanhGia}</div>
+                    <div class="review-text">${r.binhLuan ? r.binhLuan.replace(/\\n/g, '<br>') : ''}</div>
+                </div>
+            </div>
+        `;
+    });
 }

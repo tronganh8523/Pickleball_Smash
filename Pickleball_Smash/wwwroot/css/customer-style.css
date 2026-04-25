@@ -1360,3 +1360,138 @@ input[type="date"].auth-input {
         cursor: pointer;
         margin-left: 10px;
     }
+/* Thêm vào cuối file customer-style.css */
+.btn-book.disabled,
+.btn-primary-blue:disabled {
+    background-color: #bdc3c7 !important;
+    border-color: #bdc3c7 !important;
+    color: #ffffff !important;
+    cursor: not-allowed !important;
+    pointer-events: none; /* Ngăn chặn mọi sự kiện click */
+    box-shadow: none !important;
+    transform: none !important;
+}
+/* ================= REVIEW STAR RATING ================= */
+.star-rating {
+    display: inline-flex;
+    flex-direction: row-reverse; /* Đảo ngược để CSS hover chọn các sao trước đó */
+    justify-content: center;
+}
+
+    .star-rating input {
+        display: none;
+    }
+
+    .star-rating label {
+        font-size: 2.5rem;
+        color: #ddd;
+        cursor: pointer;
+        padding: 0 5px;
+        transition: color 0.2s;
+    }
+
+        .star-rating input:checked ~ label,
+        .star-rating label:hover,
+        .star-rating label:hover ~ label {
+            color: #ffc107; /* Màu vàng */
+        }
+
+/* ================= GIAO DIỆN DANH SÁCH ĐÁNH GIÁ (GIỐNG SHOPEE) ================= */
+.review-stats-header {
+    display: flex;
+    align-items: center;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    gap: 30px;
+}
+
+.review-avg-score {
+    text-align: center;
+    color: var(--primary-green);
+    min-width: 100px;
+}
+
+    .review-avg-score h3 {
+        font-size: 2.5rem;
+        margin: 0;
+    }
+
+.review-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn-filter-star {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 6px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+    .btn-filter-star.active {
+        border-color: var(--primary-green);
+        color: var(--primary-green);
+        background: #f0fdf4;
+    }
+
+.review-list-container {
+    max-height: 450px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.review-item {
+    display: flex;
+    gap: 15px;
+    padding: 20px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.review-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.review-content {
+    flex: 1;
+}
+
+.review-author {
+    font-weight: bold;
+    margin-bottom: 3px;
+    font-size: 0.95rem;
+}
+
+.review-stars {
+    color: #f59f00;
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+
+.review-date {
+    color: #888;
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+}
+
+.review-text {
+    color: #333;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
