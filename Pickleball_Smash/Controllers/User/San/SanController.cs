@@ -97,6 +97,8 @@ namespace Pickleball_Smash.Controllers.User.San
 
             string chuoiKhungGio = string.Join(",", request.SelectedHours.OrderBy(h => h));
 
+            int? currentUserId = HttpContext.Session.GetInt32("UserID");
+
             var donDat = new DonDatSan
             {
                 NguoiDungID = userId.Value,
@@ -297,24 +299,49 @@ namespace Pickleball_Smash.Controllers.User.San
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized();
 
+            // 1. Mở rộng danh sách các trạng thái hợp lệ để hiển thị trong lịch sử
+            var validStatuses = new[] { "Chờ xác nhận", "Đã xác nhận", "Hoàn thành", "Đã thanh toán" };
+
             var history = await _context.DonDatSan
                 .Include(d => d.SanPickleball)
-                .Where(d => d.NguoiDungID == userId && d.TrangThaiDon == "Đã thanh toán")
+                .Include(d => d.ThanhToans) // 2. Thêm Include này để lấy dữ liệu từ bảng ThanhToan
+                .Where(d => d.NguoiDungID == userId && d.TrangThaiDon != null && validStatuses.Contains(d.TrangThaiDon))
                 .OrderByDescending(d => d.NgayTao)
                 .ToListAsync();
 
             var result = history.Select(d => new {
                 maHoaDon = d.DonDatSanID.ToString("D3"),
-                ngayThanhToan = d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy") : "",
+                ngayThanhToan = d.ThanhToans != null && d.ThanhToans.Any()
+                    ? d.ThanhToans.First().NgayThanhToan?.ToString("dd/MM/yyyy HH:mm")
+                    : (d.NgayTao.HasValue ? d.NgayTao.Value.ToString("dd/MM/yyyy HH:mm") : ""),
                 loaiSan = d.SanPickleball != null ? d.SanPickleball.LoaiSan : string.Empty,
                 khungGio = FormatKhungGioHienThi(d.KhungGio),
                 tongTien = d.TongTien,
+                soTienGiam = d.SoTienGiam ?? 0, // Thêm dòng này để lấy tiền giảm giá cho Hóa đơn
                 trangThai = d.TrangThaiDon
             }).ToList();
 
             return Json(result);
         }
+        [HttpPost]
+        public async Task<IActionResult> CancelPendingBookings([FromBody] List<int> bookingIds)
+        {
+            if (bookingIds == null || !bookingIds.Any()) return Json(new { success = false });
 
+            var pendingBookings = await _context.DonDatSan
+                .Where(d => bookingIds.Contains(d.DonDatSanID))
+                .ToListAsync();
+
+            foreach (var b in pendingBookings)
+            {
+                // Bạn có thể xóa hẳn khỏi DB (Remove) hoặc chuyển trạng thái thành "Đã hủy"
+                // Ở đây chọn cách xóa hẳn để đỡ rác DB cho các đơn chưa từng thanh toán
+                _context.DonDatSan.Remove(b);
+            }
+
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
         // =========================================================================
         // THUẬT TOÁN GỘP CHUỖI CẢI TIẾN CHỐNG CRASH
         // =========================================================================

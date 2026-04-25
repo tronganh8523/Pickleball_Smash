@@ -162,7 +162,7 @@
 
     <div id="paymentModal" class="auth-modal-overlay">
         <div class="auth-modal modal-md">
-            <button class="auth-close" onclick="closeModal('paymentModal')">×</button>
+            <button class="auth-close" onclick="closePaymentModal()">×</button>
             <h2 class="auth-title">Thanh toán</h2>
             <div class="payment-content">
                 <div id="paymentVoucherInfo" style="display:none; background-color: #f0f8ff; padding: 10px; margin-bottom: 15px; border-radius: 5px; border-left: 4px solid #4CAF50;">
@@ -213,6 +213,7 @@
                             <th>Khung giờ</th>
                             <th>Tổng tiền</th>
                             <th>Trạng thái</th>
+                            <th>Hành động</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">
@@ -561,5 +562,59 @@
             </div>
         </div>
     </div>
+    <div class="auth-modal-overlay" id="customerInvoiceModal" style="z-index: 1001;">
+    <div class="auth-modal" style="max-width: 500px; padding: 0; overflow: hidden;">
+        <div class="modal-header" style="background: var(--primary-green); color: white; padding: 20px; position: relative;">
+            <h3 style="margin: 0; font-size: 20px;">Hóa Đơn Thanh Toán</h3>
+            <button class="auth-close" onclick="closeModal('customerInvoiceModal')" style="color: white; top: 15px; right: 15px;">×</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 25px; color: #333;">
+            <div id="invoicePrintArea" style="background: #fff; border: 1px solid #eee; padding: 20px; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h4 style="margin: 0; color: var(--primary-green);">PICKLEBALL SMASH</h4>
+                    <small style="color: #666;">Dịch vụ đặt sân chuyên nghiệp</small>
+                </div>
+                
+                <div style="font-size: 14px; line-height: 1.8;">
+                    <p style="display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; margin: 5px 0;">
+                        <span>Mã hóa đơn:</span> <strong id="cusInvId"></strong>
+                    </p>
+                    <p style="display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; margin: 5px 0;">
+                        <span>Ngày thanh toán:</span> <span id="cusInvDate"></span>
+                    </p>
+                    <p style="display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; margin: 5px 0;">
+                        <span>Loại sân:</span> <span id="cusInvCourt"></span>
+                    </p>
+                    <p style="display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; margin: 5px 0;">
+                        <span>Khung giờ:</span> <span id="cusInvTime" style="text-align: right; max-width: 60%;"></span>
+                    </p>
+                </div>
+
+                <div style="margin-top: 20px; padding-top: 10px; border-top: 2px solid #eee;">
+                    <p style="display: flex; justify-content: space-between; margin: 5px 0;">
+                        <span>Tạm tính:</span> <span id="cusInvTotal"></span>
+                    </p>
+                    <p style="display: flex; justify-content: space-between; margin: 5px 0; color: #dc3545;">
+                        <span>Giảm giá:</span> <span id="cusInvDiscount"></span>
+                    </p>
+                    <p style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 18px; font-weight: bold; color: var(--primary-green);">
+                        <span>Tổng cộng:</span> <span id="cusInvFinal"></span>
+                    </p>
+                </div>
+            </div>
+
+            <div style="margin-top: 25px; display: flex; gap: 10px;">
+                <button class="btn-detail" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-size: 16px;" onclick="closeModal('customerInvoiceModal'); openModal('historyModal');">
+                    <i class="fas fa-arrow-left"></i> Quay lại
+                </button>
+                <button type="button" id="cusBtnPrintPdf" class="btn-book" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-size: 16px; border: none; font-family: inherit;">
+    <i class="fas fa-file-pdf"></i> In Hóa Đơn
+</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </body>
 </html>

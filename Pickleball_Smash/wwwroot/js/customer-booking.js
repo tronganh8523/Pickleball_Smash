@@ -6,6 +6,7 @@ let bookedSlots = [];
 let currentDetailCourtId = null;
 let appliedVoucherCode = '';
 let appliedDiscountAmount = 0;
+let userHistoryData = [];
 
 function openModal(id) {
     document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
@@ -102,19 +103,48 @@ async function fetchBookedSlots() {
     calcTotal();
 }
 
+// Thay thế hàm renderTimeSlots hiện tại trong customer-booking.js
 function renderTimeSlots() {
     const grid = document.getElementById('timeSlotGrid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    for (let i = 5; i < 22; i++) {
+    // Lấy ngày chọn và ngày giờ hiện tại
+    const selectedDate = document.getElementById('bkDate').value;
+    const today = new Date();
+    // Chuyển today về định dạng YYYY-MM-DD theo múi giờ local
+    const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+    const isToday = selectedDate === todayStr;
+    const currentHour = today.getHours();
+
+    for (let i = 5; i < 24; i++) {
         const slot = document.createElement('div');
         slot.className = 'time-slot';
-        if (bookedSlots.includes(i)) slot.classList.add('disabled');
-        else if (selectedSlots.includes(i)) slot.classList.add('selected');
 
-        slot.innerText = `${i}:00 - ${i + 1}:00`;
-        slot.onclick = () => toggleSlot(i);
+        // Logic chặn giờ quá khứ
+        const isPastHour = isToday && (i <= currentHour);
+
+        if (bookedSlots.includes(i)) {
+            slot.classList.add('disabled');
+            slot.innerText = `${i}:00 - ${i + 1}:00`;
+        }
+        else if (isPastHour) {
+            slot.classList.add('disabled');
+            slot.innerText = `${i}:00 - ${i + 1}:00\n(Đã qua)`;
+        }
+        else if (selectedSlots.includes(i)) {
+            slot.classList.add('selected');
+            slot.innerText = `${i}:00 - ${i + 1}:00`;
+        }
+        else {
+            slot.innerText = `${i}:00 - ${i + 1}:00`;
+        }
+
+        // Chỉ cho phép click nếu không bị disabled
+        if (!slot.classList.contains('disabled')) {
+            slot.onclick = () => toggleSlot(i);
+        }
         grid.appendChild(slot);
     }
 }
@@ -291,6 +321,29 @@ function updatePaymentModal() {
     finalAmountDisplay.innerText = finalAmount.toLocaleString('vi-VN') + 'đ';
 }
 
+// Thêm hàm này vào customer-booking.js
+async function closePaymentModal() {
+    if (currentBookingIds.length > 0) {
+        const confirmExit = confirm("Bạn chưa hoàn tất thanh toán! Tắt cửa sổ này sẽ hủy đơn đặt sân của bạn. Bạn có chắc chắn muốn thoát?");
+        if (!confirmExit) return; // Người dùng không muốn thoát
+
+        // Gọi API xóa đơn nháp
+        await fetch('/San/CancelPendingBookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentBookingIds)
+        });
+
+        // Reset lại dữ liệu
+        currentBookingIds = [];
+        resetVoucherState();
+
+        // Load lại lưới giờ để trả lại sân cho người khác
+        await fetchBookedSlots();
+    }
+    closeModal('paymentModal');
+}
+
 // ================= LOGIC THANH TOÁN & LỊCH SỬ =================
 function confirmPayment() {
     if (currentBookingIds.length === 0) return;
@@ -319,21 +372,39 @@ function confirmPayment() {
 
 function loadHistory() {
     if (!window.isLoggedIn) { alert("Vui lòng đăng nhập!"); return; }
-    fetch('/San/GetBookingHistory').then(res => res.json()).then(data => {
-        const tbody = document.getElementById('historyTableBody');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        data.forEach(item => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${item.maHoaDon}</td><td>${item.ngayThanhToan}</td>
-                    <td>${item.loaiSan}</td><td>${item.khungGio}</td>
-                    <td>${item.tongTien.toLocaleString('vi-VN')}đ</td>
-                    <td><span class="status-paid">${item.trangThai}</span></td>
-                </tr>`;
+
+    fetch('/San/GetBookingHistory')
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.getElementById('historyTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            // Lưu dữ liệu vào biến toàn cục để dùng cho popup hóa đơn
+            userHistoryData = data;
+
+            data.forEach((item, index) => {
+                // Chỉ hiện nút hóa đơn cho các đơn Đã xác nhận, Đã thanh toán, Hoàn thành
+                const showInvoice = ['Đã thanh toán', 'Hoàn thành', 'Đã xác nhận'].includes(item.trangThai);
+                const invoiceBtn = showInvoice
+                    ? `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto;" onclick="viewCustomerInvoice(${index})">
+                         <i class="fas fa-file-invoice"></i> Hóa đơn
+                       </button>`
+                    : '-';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.maHoaDon}</td>
+                        <td>${item.ngayThanhToan}</td>
+                        <td>${item.loaiSan}</td>
+                        <td>${item.khungGio}</td>
+                        <td>${item.tongTien.toLocaleString('vi-VN')}đ</td>
+                        <td><span class="status-paid">${item.trangThai}</span></td>
+                        <td style="text-align: center;">${invoiceBtn}</td>
+                    </tr>`;
+            });
+            openModal('historyModal');
         });
-        openModal('historyModal');
-    });
 }
 
 // ================= LOGIC CHI TIẾT SÂN =================
@@ -612,5 +683,75 @@ function openChatDetail(dateString, startString, endString) {
             closeModal('chatHistoryModal');
             openModal('chatDetailModal');
             contentBox.scrollTop = contentBox.scrollHeight;
+        });
+}
+// ================= LOGIC HÓA ĐƠN & XUẤT PDF =================
+function viewCustomerInvoice(index) {
+    const item = userHistoryData[index];
+    if (!item) return;
+
+    // Gắn dữ liệu vào Modal
+    document.getElementById('cusInvId').innerText = item.maHoaDon;
+    document.getElementById('cusInvDate').innerText = item.ngayThanhToan;
+    document.getElementById('cusInvCourt').innerText = item.loaiSan;
+    document.getElementById('cusInvTime').innerText = item.khungGio;
+
+    // Tính toán Tạm tính và Giảm giá
+    const finalAmount = item.tongTien;
+    const discount = item.soTienGiam || 0;
+    const subTotal = finalAmount + discount;
+
+    document.getElementById('cusInvTotal').innerText = subTotal.toLocaleString('vi-VN') + 'đ';
+    document.getElementById('cusInvDiscount').innerText = '-' + discount.toLocaleString('vi-VN') + 'đ';
+    document.getElementById('cusInvFinal').innerText = finalAmount.toLocaleString('vi-VN') + 'đ';
+
+    // Gắn sự kiện in PDF cho nút "Tải PDF"
+    const btnPrint = document.getElementById('cusBtnPrintPdf');
+    btnPrint.onclick = function (e) {
+        e.preventDefault();
+        downloadInvoicePDF(item.maHoaDon);
+    };
+
+    // Chuyển đổi Modal
+    closeModal('historyModal');
+    openModal('customerInvoiceModal');
+}
+
+function downloadInvoicePDF(invoiceId) {
+    const element = document.getElementById('invoicePrintArea');
+
+    // Cấu hình thư viện html2pdf
+    const opt = {
+        margin: [15, 15, 15, 15],
+        filename: `HoaDon_PickleballSmash_${invoiceId}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    if (typeof html2pdf === 'undefined') {
+        alert("Đang tải thư viện tạo PDF, vui lòng thử lại sau vài giây.");
+        return;
+    }
+
+    // Hiệu ứng UX: Đổi text nút trong lúc tải
+    const btnPrint = document.getElementById('cusBtnPrintPdf');
+    const originalText = btnPrint.innerHTML;
+    btnPrint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo PDF...';
+    btnPrint.style.pointerEvents = 'none';
+
+    // Tạo và tải PDF kèm theo bắt lỗi (catch)
+    html2pdf().set(opt).from(element).save()
+        .then(() => {
+            // Khi thành công hoặc người dùng đã đóng hộp thoại save
+            btnPrint.innerHTML = originalText;
+            btnPrint.style.pointerEvents = 'auto';
+        })
+        .catch(err => {
+            // Khi có lỗi hoặc luồng bị gián đoạn
+            console.error("Lỗi xuất PDF:", err);
+            btnPrint.innerHTML = originalText;
+            btnPrint.style.pointerEvents = 'auto';
+            alert("Quá trình xuất PDF bị gián đoạn. Vui lòng thử lại!");
         });
 }

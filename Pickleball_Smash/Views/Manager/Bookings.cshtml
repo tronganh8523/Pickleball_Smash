@@ -34,6 +34,7 @@
                 <option value="">Tất cả sân</option>
                 @foreach (var san in sanOptions)
                 {
+                    
                     if (selectedSanId == san.Value)
                     {
                         <option value="@san.Value" selected>@san.Text</option>
@@ -729,6 +730,34 @@
             </div>
         </div>
     </div>
+
+    <div id="invoiceModal" class="booking-overlay" hidden>
+    <div class="booking-overlay-backdrop js-close-invoice"></div>
+    <div class="booking-modal invoice-preview-modal" style="max-width: 500px; padding: 25px;">
+        <button type="button" class="booking-close js-close-invoice" style="border: none; background: transparent; font-size: 24px; cursor: pointer; float: right;">×</button>
+        <h3 class="text-center mb-4" style="color: var(--manager-green-800);">HÓA ĐƠN THANH TOÁN</h3>
+        
+        <div class="invoice-content" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+            <div class="d-flex justify-content-between mb-2"><span>Mã hóa đơn:</span> <strong id="invId"></strong></div>
+            <div class="d-flex justify-content-between mb-2"><span>Khách hàng:</span> <strong id="invCustomer"></strong></div>
+            <div class="d-flex justify-content-between mb-2"><span>Sân:</span> <strong id="invCourt"></strong></div>
+            <div class="d-flex justify-content-between mb-2"><span>Khung giờ:</span> <strong id="invTime"></strong></div>
+            <hr>
+            <div class="d-flex justify-content-between mb-2"><span>Tổng tiền:</span> <strong id="invTotal"></strong></div>
+            <div class="d-flex justify-content-between mb-2"><span>Giảm giá:</span> <strong id="invDiscount"></strong></div>
+            <div class="d-flex justify-content-between mt-3">
+                <h5 style="margin:0;">Thành tiền:</h5> <h5 style="color: var(--manager-green-700); margin:0;" id="invFinal"></h5>
+            </div>
+        </div>
+
+        <div class="modal-footer mt-4 d-flex justify-content-center" style="border-top: none;">
+            <a href="#" id="btnPrintInvoice" class="btn btn-primary" style="background-color: var(--manager-green-700); border: none; padding: 10px 20px;">
+                <i class="fas fa-print"></i> Tải / In PDF
+            </a>
+        </div>
+    </div>
+</div>
+
 
     <style>
         .time-slots-grid {
