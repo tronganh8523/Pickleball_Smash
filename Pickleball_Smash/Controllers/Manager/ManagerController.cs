@@ -143,12 +143,87 @@ namespace Pickleball_Smash.Controllers
         {
             if (!HasManagerAccess()) return Forbid();
 
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return RedirectToAction("Index", "Home");
+
             var manager = await _context.NguoiDung
                 .AsNoTracking()
-                .OrderByDescending(x => x.NgayTao)
-                .FirstOrDefaultAsync(x => x.VaiTro != null && x.VaiTro.ToLower() == "manager");
+                .FirstOrDefaultAsync(x => x.NguoiDungID == userId.Value);
 
             return View("~/Views/Manager/Profile.cshtml", manager);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateMyProfileRequest request)
+        {
+            if (!HasManagerAccess()) return Forbid();
+
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
+
+            var user = await _context.NguoiDung.FindAsync(userId.Value);
+            if (user == null) return NotFound(new { success = false, message = "Không tìm thấy tài khoản." });
+
+            var email = request.Email?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(email))
+                return BadRequest(new { success = false, message = "Email là bắt buộc." });
+
+            if (await _context.NguoiDung.AnyAsync(x => x.NguoiDungID != user.NguoiDungID && x.Email != null && x.Email == email))
+                return BadRequest(new { success = false, message = "Email đã tồn tại." });
+
+            var phone = request.Phone?.Trim();
+            if (!string.IsNullOrWhiteSpace(phone)
+                && await _context.NguoiDung.AnyAsync(x => x.NguoiDungID != user.NguoiDungID && x.SDT != null && x.SDT == phone))
+                return BadRequest(new { success = false, message = "Số điện thoại đã tồn tại." });
+
+            user.HoTen = request.FullName?.Trim();
+            user.Email = email;
+            user.SDT = phone;
+            user.GioiTinh = request.Gender?.Trim();
+
+            await _context.SaveChangesAsync();
+            HttpContext.Session.SetString("HoTen", user.HoTen ?? user.TenDangNhap);
+
+            return Ok(new { success = true, message = "Cập nhật thông tin cá nhân thành công." });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest request)
+        {
+            if (!HasManagerAccess()) return Forbid();
+
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
+
+            if (string.IsNullOrWhiteSpace(request.OldPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+                return BadRequest(new { success = false, message = "Vui lòng nhập đầy đủ mật khẩu cũ và mới." });
+
+            if (request.NewPassword.Length < 8)
+                return BadRequest(new { success = false, message = "Mật khẩu mới phải có ít nhất 8 ký tự." });
+
+            var user = await _context.NguoiDung.FindAsync(userId.Value);
+            if (user == null) return NotFound(new { success = false, message = "Không tìm thấy tài khoản." });
+
+            bool isOldPasswordCorrect;
+            if (!string.IsNullOrWhiteSpace(user.MatKhau) && user.MatKhau.StartsWith("$2"))
+            {
+                isOldPasswordCorrect = BCrypt.Net.BCrypt.Verify(request.OldPassword, user.MatKhau);
+            }
+            else
+            {
+                isOldPasswordCorrect = string.Equals(user.MatKhau, request.OldPassword);
+            }
+
+            if (!isOldPasswordCorrect)
+                return BadRequest(new { success = false, message = "Mật khẩu cũ không chính xác." });
+
+            // Keep storage style consistent with existing value.
+            user.MatKhau = (!string.IsNullOrWhiteSpace(user.MatKhau) && user.MatKhau.StartsWith("$2"))
+                ? BCrypt.Net.BCrypt.HashPassword(request.NewPassword)
+                : request.NewPassword;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
         }
 
         [HttpPost]
@@ -506,6 +581,20 @@ namespace Pickleball_Smash.Controllers
             if (!parsed.Any()) return false;
             hours = parsed;
             return true;
+        }
+
+        public class UpdateMyProfileRequest
+        {
+            public string? FullName { get; set; }
+            public string? Email { get; set; }
+            public string? Phone { get; set; }
+            public string? Gender { get; set; }
+        }
+
+        public class ChangeMyPasswordRequest
+        {
+            public string OldPassword { get; set; } = string.Empty;
+            public string NewPassword { get; set; } = string.Empty;
         }
     }
 }

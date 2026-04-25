@@ -1,14 +1,111 @@
 @model IEnumerable<Pickleball_Smash.Models.DonDatSan>
+@using Microsoft.AspNetCore.Mvc.Rendering
 
 @{
     ViewData["Title"] = "Quản Lý Đơn Đặt Sân";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    var sanOptions = ViewBag.SanOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var khungGioOptions = ViewBag.KhungGioOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var trangThaiOptions = ViewBag.TrangThaiOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
+    var selectedSanId = ViewBag.SelectedSanId?.ToString() ?? string.Empty;
+    var selectedKhungGio = ViewBag.SelectedKhungGio as string ?? string.Empty;
+    var selectedTrangThai = ViewBag.SelectedTrangThai as string ?? string.Empty;
+    var selectedNgayChoiTu = ViewBag.SelectedNgayChoiTu as string ?? string.Empty;
+    var selectedNgayChoiDen = ViewBag.SelectedNgayChoiDen as string ?? string.Empty;
+    var selectedSapXep = ViewBag.SelectedSapXep as string ?? "created_desc";
+    var selectedTuKhoa = ViewBag.SelectedTuKhoa as string ?? string.Empty;
 }
 
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-md-12">
             <h1 class="h3 mb-0 text-dark"><i class="fas fa-file-invoice"></i> Danh Sách Đơn Đặt Sân</h1>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="get" asp-controller="AdminDonDatSan" asp-action="Index" class="row g-3">
+                <div class="col-md-3">
+                    <label for="tuKhoa" class="form-label">Tìm kiếm Tên/SĐT</label>
+                    <input id="tuKhoa" name="tuKhoa" type="text" class="form-control" value="@selectedTuKhoa" placeholder="Nhập tên hoặc số điện thoại" />
+                </div>
+                <div class="col-md-2">
+                    <label for="sanId" class="form-label">Sân</label>
+                    <select id="sanId" name="sanId" class="form-select">
+                        <option value="">Tất cả sân</option>
+                        @foreach (var san in sanOptions)
+                        {
+                            if (selectedSanId == san.Value)
+                            {
+                                <option value="@san.Value" selected>@san.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@san.Value">@san.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="khungGio" class="form-label">Khung giờ</label>
+                    <select id="khungGio" name="khungGio" class="form-select">
+                        <option value="">Tất cả khung giờ</option>
+                        @foreach (var kg in khungGioOptions)
+                        {
+                            if (string.Equals(selectedKhungGio, kg.Value, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <option value="@kg.Value" selected>@kg.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@kg.Value">@kg.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="ngayChoiTu" class="form-label">Ngày chơi từ</label>
+                    <input id="ngayChoiTu" name="ngayChoiTu" type="date" class="form-control" value="@selectedNgayChoiTu" />
+                </div>
+                <div class="col-md-2">
+                    <label for="ngayChoiDen" class="form-label">Ngày chơi đến</label>
+                    <input id="ngayChoiDen" name="ngayChoiDen" type="date" class="form-control" value="@selectedNgayChoiDen" />
+                </div>
+                <div class="col-md-3">
+                    <label for="trangThai" class="form-label">Trạng thái</label>
+                    <select id="trangThai" name="trangThai" class="form-select">
+                        <option value="">Tất cả trạng thái</option>
+                        @foreach (var st in trangThaiOptions)
+                        {
+                            if (string.Equals(selectedTrangThai, st.Value, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <option value="@st.Value" selected>@st.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@st.Value">@st.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="sapXep" class="form-label">Sắp xếp</label>
+                    <select id="sapXep" name="sapXep" class="form-select">
+                        @if (selectedSapXep == "created_desc") { <option value="created_desc" selected>Ngày tạo mới nhất</option> } else { <option value="created_desc">Ngày tạo mới nhất</option> }
+                        @if (selectedSapXep == "created_asc") { <option value="created_asc" selected>Ngày tạo cũ nhất</option> } else { <option value="created_asc">Ngày tạo cũ nhất</option> }
+                        @if (selectedSapXep == "playdate_desc") { <option value="playdate_desc" selected>Ngày chơi mới nhất</option> } else { <option value="playdate_desc">Ngày chơi mới nhất</option> }
+                        @if (selectedSapXep == "playdate_asc") { <option value="playdate_asc" selected>Ngày chơi cũ nhất</option> } else { <option value="playdate_asc">Ngày chơi cũ nhất</option> }
+                        @if (selectedSapXep == "total_desc") { <option value="total_desc" selected>Tổng tiền cao đến thấp</option> } else { <option value="total_desc">Tổng tiền cao đến thấp</option> }
+                        @if (selectedSapXep == "total_asc") { <option value="total_asc" selected>Tổng tiền thấp đến cao</option> } else { <option value="total_asc">Tổng tiền thấp đến cao</option> }
+                    </select>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Lọc</button>
+                    <a asp-controller="AdminDonDatSan" asp-action="Index" class="btn btn-outline-secondary">Bỏ lọc</a>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -28,6 +125,7 @@
                             <th>Giảm</th>
                             <th>Trạng Thái</th>
                             <th>Ngày Tạo</th>
+                            <th>Chi Tiết</th>
                             <th>Hoá Đơn</th>
                         </tr>
                     </thead>
@@ -65,6 +163,13 @@
                                     </td>
                                     <td>@item.NgayTao?.ToString("dd/MM/yyyy HH:mm")</td>
                                     <td>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-dark js-order-details"
+                                                data-order-id="@item.DonDatSanID">
+                                            Chi tiết
+                                        </button>
+                                    </td>
+                                    <td>
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a class="btn btn-outline-secondary"
                                                href="@Url.Action("InvoicePdf", "AdminDonDatSan", new { id = item.DonDatSanID, download = true })">
@@ -83,7 +188,7 @@
                         else
                         {
                             <tr>
-                                <td colspan="11" class="text-center text-muted">Chưa có đơn đặt sân nào.</td>
+                                <td colspan="12" class="text-center text-muted">Chưa có đơn đặt sân nào.</td>
                             </tr>
                         }
                     </tbody>
@@ -92,3 +197,72 @@
         </div>
     </div>
 </div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết đơn</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="orderDetailsModalBody" class="text-muted">Đang tải...</div>
+            </div>
+            <div class="modal-footer">
+                <a id="orderDetailsPdfBtn" class="btn btn-outline-secondary" href="#" target="_blank" rel="noopener">
+                    Tải PDF
+                </a>
+                <a id="orderDetailsPrintBtn" class="btn btn-primary" href="#" target="_blank" rel="noopener">
+                    In hoá đơn
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const detailsUrlBase = '@Url.Action("DetailsModal", "AdminDonDatSan")';
+            const invoiceUrlBase = '@Url.Action("InvoicePdf", "AdminDonDatSan")';
+
+            const modalEl = document.getElementById('orderDetailsModal');
+            const modalBody = document.getElementById('orderDetailsModalBody');
+            const pdfBtn = document.getElementById('orderDetailsPdfBtn');
+            const printBtn = document.getElementById('orderDetailsPrintBtn');
+
+            if (!modalEl || !modalBody || !pdfBtn || !printBtn) return;
+
+            const modal = new bootstrap.Modal(modalEl);
+
+            async function openDetails(orderId) {
+                modalBody.textContent = 'Đang tải...';
+                pdfBtn.href = invoiceUrlBase + '?id=' + orderId + '&download=true';
+                printBtn.href = invoiceUrlBase + '?id=' + orderId + '&download=false';
+
+                modal.show();
+
+                try {
+                    const res = await fetch(detailsUrlBase + '?id=' + orderId, { headers: { 'X-Requested-With': 'fetch' } });
+                    if (!res.ok) {
+                        modalBody.textContent = 'Không tải được chi tiết đơn.';
+                        return;
+                    }
+                    const html = await res.text();
+                    modalBody.innerHTML = html;
+                } catch (e) {
+                    modalBody.textContent = 'Lỗi kết nối. Vui lòng thử lại.';
+                }
+            }
+
+            document.querySelectorAll('.js-order-details').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const id = Number(this.dataset.orderId || 0);
+                    if (id) openDetails(id);
+                });
+            });
+        })();
+    </script>
+}

@@ -25,6 +25,82 @@ namespace Pickleball_Smash.Controllers
             return View("~/Views/Admin/User/Index.cshtml", items);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> MyProfile()
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
+
+            var user = await _context.NguoiDung.FindAsync(userId.Value);
+            if (user == null) return NotFound(new { success = false, message = "Không tìm thấy tài khoản." });
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    user.HoTen,
+                    user.Email,
+                    user.SDT,
+                    user.GioiTinh
+                }
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateMyProfileRequest request)
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
+
+            var user = await _context.NguoiDung.FindAsync(userId.Value);
+            if (user == null) return NotFound(new { success = false, message = "Không tìm thấy tài khoản." });
+
+            var email = request.Email?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(email) || !Regex.IsMatch(email, @"^[^\s@]+@[^\s@]+\.[^\s@]+$"))
+                return BadRequest(new { success = false, message = "Email không hợp lệ." });
+
+            if (await IsEmailExists(email, user.NguoiDungID))
+                return BadRequest(new { success = false, message = "Email đã tồn tại." });
+
+            if (!string.IsNullOrWhiteSpace(request.Phone) && await IsPhoneExists(request.Phone.Trim(), user.NguoiDungID))
+                return BadRequest(new { success = false, message = "Số điện thoại đã tồn tại." });
+
+            user.HoTen = request.FullName?.Trim();
+            user.Email = email;
+            user.SDT = request.Phone?.Trim();
+            user.GioiTinh = request.Gender?.Trim();
+
+            await _context.SaveChangesAsync();
+            HttpContext.Session.SetString("HoTen", user.HoTen ?? user.TenDangNhap);
+
+            return Ok(new { success = true, message = "Cập nhật thông tin cá nhân thành công." });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest request)
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
+
+            if (string.IsNullOrWhiteSpace(request.OldPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+                return BadRequest(new { success = false, message = "Vui lòng nhập đầy đủ mật khẩu cũ và mới." });
+
+            if (request.NewPassword.Length < 8)
+                return BadRequest(new { success = false, message = "Mật khẩu mới phải có ít nhất 8 ký tự." });
+
+            var user = await _context.NguoiDung.FindAsync(userId.Value);
+            if (user == null) return NotFound(new { success = false, message = "Không tìm thấy tài khoản." });
+
+            if (!string.Equals(user.MatKhau, request.OldPassword))
+                return BadRequest(new { success = false, message = "Mật khẩu cũ không chính xác." });
+
+            user.MatKhau = request.NewPassword;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
+        }
+
         // GET: User - Edit
         public IActionResult Edit(int? id)
         {
@@ -222,6 +298,20 @@ namespace Pickleball_Smash.Controllers
                 .Select(e => e.ErrorMessage)
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct());
+        }
+
+        public class UpdateMyProfileRequest
+        {
+            public string? FullName { get; set; }
+            public string? Email { get; set; }
+            public string? Phone { get; set; }
+            public string? Gender { get; set; }
+        }
+
+        public class ChangeMyPasswordRequest
+        {
+            public string OldPassword { get; set; } = string.Empty;
+            public string NewPassword { get; set; } = string.Empty;
         }
     }
 }

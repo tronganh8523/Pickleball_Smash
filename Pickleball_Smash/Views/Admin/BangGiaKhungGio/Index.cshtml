@@ -7,6 +7,22 @@
     var openModal = TempData["OpenModal"] as string ?? string.Empty;
     var modalData = TempData["ModalData"] as string ?? string.Empty;
     var modalErrors = TempData["ModalErrors"] as string ?? string.Empty;
+
+    string FormatKhungGioDisplay(string? khungGioRaw)
+    {
+        if (string.IsNullOrWhiteSpace(khungGioRaw)) return "-";
+
+        var hours = khungGioRaw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => int.TryParse(x, out var h) ? h : -1)
+            .Where(h => h >= 0 && h <= 23)
+            .Distinct()
+            .OrderBy(h => h)
+            .ToList();
+
+        if (!hours.Any()) return khungGioRaw;
+        return string.Join(", ", hours.Select(h => $"{h:D2}:00 - {(h + 1):D2}:00"));
+    }
 }
 
 <div class="container-fluid py-4">
@@ -45,7 +61,7 @@
                             {
                                 <tr>
                                     <td>@(item.SanPickleball?.TenSan ?? "-")</td>
-                                    <td>@(string.IsNullOrWhiteSpace(item.KhungGio) ? "-" : item.KhungGio)</td>
+                                    <td>@FormatKhungGioDisplay(item.KhungGio)</td>
                                     <td>@(item.GiaTien?.ToString("N0") ?? "0") VNĐ</td>
                                     <td>
                                         <button type="button"

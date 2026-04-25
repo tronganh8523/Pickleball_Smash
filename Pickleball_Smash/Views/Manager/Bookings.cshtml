@@ -10,8 +10,11 @@
     var trangThaiOptions = ViewBag.TrangThaiOptions as IEnumerable<SelectListItem> ?? Enumerable.Empty<SelectListItem>();
     var selectedSanId = ViewBag.SelectedSanId?.ToString() ?? string.Empty;
     var selectedKhungGio = ViewBag.SelectedKhungGio as string ?? string.Empty;
-    var selectedNgayTao = ViewBag.SelectedNgayTao as string ?? string.Empty;
+    var selectedNgayChoiTu = ViewBag.SelectedNgayChoiTu as string ?? string.Empty;
+    var selectedNgayChoiDen = ViewBag.SelectedNgayChoiDen as string ?? string.Empty;
     var selectedTrangThai = ViewBag.SelectedTrangThai as string ?? string.Empty;
+    var selectedSapXep = ViewBag.SelectedSapXep as string ?? "created_desc";
+    var selectedTuKhoa = ViewBag.SelectedTuKhoa as string ?? string.Empty;
 }
 
 @section Styles {
@@ -62,8 +65,18 @@
         </div>
 
         <div class="filter-group">
-            <label for="ngayTao">Ngày tạo</label>
-            <input id="ngayTao" name="ngayTao" type="date" class="form-control" value="@selectedNgayTao" />
+            <label for="tuKhoa">Tìm kiếm Tên/SĐT</label>
+            <input id="tuKhoa" name="tuKhoa" type="text" class="form-control" value="@selectedTuKhoa" placeholder="Nhập tên hoặc số điện thoại" />
+        </div>
+
+        <div class="filter-group">
+            <label for="ngayChoiTu">Ngày chơi từ</label>
+            <input id="ngayChoiTu" name="ngayChoiTu" type="date" class="form-control" value="@selectedNgayChoiTu" />
+        </div>
+
+        <div class="filter-group">
+            <label for="ngayChoiDen">Ngày chơi đến</label>
+            <input id="ngayChoiDen" name="ngayChoiDen" type="date" class="form-control" value="@selectedNgayChoiDen" />
         </div>
 
         <div class="filter-group">
@@ -80,6 +93,60 @@
                     {
                         <option value="@status.Value">@status.Text</option>
                     }
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="sapXep">Sắp xếp</label>
+            <select id="sapXep" name="sapXep" class="form-select">
+                @if (selectedSapXep == "created_desc")
+                {
+                    <option value="created_desc" selected>Ngày tạo mới nhất</option>
+                }
+                else
+                {
+                    <option value="created_desc">Ngày tạo mới nhất</option>
+                }
+                @if (selectedSapXep == "created_asc")
+                {
+                    <option value="created_asc" selected>Ngày tạo cũ nhất</option>
+                }
+                else
+                {
+                    <option value="created_asc">Ngày tạo cũ nhất</option>
+                }
+                @if (selectedSapXep == "playdate_desc")
+                {
+                    <option value="playdate_desc" selected>Ngày chơi mới nhất</option>
+                }
+                else
+                {
+                    <option value="playdate_desc">Ngày chơi mới nhất</option>
+                }
+                @if (selectedSapXep == "playdate_asc")
+                {
+                    <option value="playdate_asc" selected>Ngày chơi cũ nhất</option>
+                }
+                else
+                {
+                    <option value="playdate_asc">Ngày chơi cũ nhất</option>
+                }
+                @if (selectedSapXep == "total_desc")
+                {
+                    <option value="total_desc" selected>Tổng tiền cao đến thấp</option>
+                }
+                else
+                {
+                    <option value="total_desc">Tổng tiền cao đến thấp</option>
+                }
+                @if (selectedSapXep == "total_asc")
+                {
+                    <option value="total_asc" selected>Tổng tiền thấp đến cao</option>
+                }
+                else
+                {
+                    <option value="total_asc">Tổng tiền thấp đến cao</option>
                 }
             </select>
         </div>

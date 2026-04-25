@@ -15,7 +15,7 @@ namespace Pickleball_Smash.Controllers
             _context = context;
         }
 
-        public async Task<IActionResult> History(int? sanId, string? khungGio, string? ngayTao, string? trangThai)
+        public async Task<IActionResult> History(int? sanId, string? khungGio, string? ngayChoiTu, string? ngayChoiDen, string? trangThai, string? sapXep, string? tuKhoa)
         {
             if (!HasManagerAccess()) return Forbid();
 
@@ -64,19 +64,44 @@ namespace Pickleball_Smash.Controllers
             if (!string.IsNullOrWhiteSpace(khungGio))
                 filtered = filtered.Where(d => string.Equals(FormatBookingTimeRange(d), khungGio.Trim(), StringComparison.OrdinalIgnoreCase));
 
-            if (!string.IsNullOrWhiteSpace(ngayTao) && DateOnly.TryParse(ngayTao, out var selectedNgayTao))
-                filtered = filtered.Where(d => d.NgayTao.HasValue && DateOnly.FromDateTime(d.NgayTao.Value) == selectedNgayTao);
+            if (!string.IsNullOrWhiteSpace(ngayChoiTu) && DateOnly.TryParse(ngayChoiTu, out var fromDate))
+                filtered = filtered.Where(d => d.NgayChoi.HasValue && d.NgayChoi.Value >= fromDate);
+
+            if (!string.IsNullOrWhiteSpace(ngayChoiDen) && DateOnly.TryParse(ngayChoiDen, out var toDate))
+                filtered = filtered.Where(d => d.NgayChoi.HasValue && d.NgayChoi.Value <= toDate);
 
             if (!string.IsNullOrWhiteSpace(trangThai))
                 filtered = filtered.Where(d => string.Equals(NormalizeStatus(d.TrangThaiDon), trangThai.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(tuKhoa))
+            {
+                var keyword = tuKhoa.Trim();
+                filtered = filtered.Where(d =>
+                    (!string.IsNullOrWhiteSpace(d.NguoiDung?.HoTen) && d.NguoiDung.HoTen.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(d.NguoiDung?.TenDangNhap) && d.NguoiDung.TenDangNhap.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(d.NguoiDung?.SDT) && d.NguoiDung.SDT.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            filtered = (sapXep ?? "created_desc").Trim().ToLowerInvariant() switch
+            {
+                "created_asc" => filtered.OrderBy(d => d.NgayTao),
+                "playdate_desc" => filtered.OrderByDescending(d => d.NgayChoi),
+                "playdate_asc" => filtered.OrderBy(d => d.NgayChoi),
+                "total_desc" => filtered.OrderByDescending(d => d.TongTien ?? 0),
+                "total_asc" => filtered.OrderBy(d => d.TongTien ?? 0),
+                _ => filtered.OrderByDescending(d => d.NgayTao)
+            };
 
             ViewBag.SanOptions = (object)sanOptions;
             ViewBag.KhungGioOptions = (object)khungGioOptions;
             ViewBag.TrangThaiOptions = (object)trangThaiOptions;
             ViewBag.SelectedSanId = sanId;
             ViewBag.SelectedKhungGio = khungGio;
-            ViewBag.SelectedNgayTao = ngayTao;
+            ViewBag.SelectedNgayChoiTu = ngayChoiTu;
+            ViewBag.SelectedNgayChoiDen = ngayChoiDen;
             ViewBag.SelectedTrangThai = trangThai;
+            ViewBag.SelectedSapXep = sapXep;
+            ViewBag.SelectedTuKhoa = tuKhoa;
 
             return View("~/Views/Manager/History.cshtml", filtered.ToList());
         }

@@ -16,9 +16,10 @@ namespace Pickleball_Smash.Controllers
             _context = context;
         }
 
-        public async Task<IActionResult> Bookings(int? sanId, string? khungGio, string? ngayTao, string? trangThai)
+        public async Task<IActionResult> Bookings(int? sanId, string? khungGio, string? ngayChoiTu, string? ngayChoiDen, string? trangThai, string? sapXep, string? tuKhoa)
         {
             if (!HasManagerAccess()) return Forbid();
+            await AutoCheckoutExpiredConfirmedBookings();
 
             var tatCaDon = await _context.DonDatSan
                 .AsNoTracking()
@@ -60,19 +61,44 @@ namespace Pickleball_Smash.Controllers
             if (!string.IsNullOrWhiteSpace(khungGio))
                 filteredDon = filteredDon.Where(d => string.Equals(FormatBookingTimeRange(d), khungGio.Trim(), StringComparison.OrdinalIgnoreCase));
 
-            if (!string.IsNullOrWhiteSpace(ngayTao) && DateOnly.TryParse(ngayTao, out var selectedNgayTao))
-                filteredDon = filteredDon.Where(d => d.NgayTao.HasValue && DateOnly.FromDateTime(d.NgayTao.Value) == selectedNgayTao);
+            if (!string.IsNullOrWhiteSpace(ngayChoiTu) && DateOnly.TryParse(ngayChoiTu, out var fromDate))
+                filteredDon = filteredDon.Where(d => d.NgayChoi.HasValue && d.NgayChoi.Value >= fromDate);
+
+            if (!string.IsNullOrWhiteSpace(ngayChoiDen) && DateOnly.TryParse(ngayChoiDen, out var toDate))
+                filteredDon = filteredDon.Where(d => d.NgayChoi.HasValue && d.NgayChoi.Value <= toDate);
 
             if (!string.IsNullOrWhiteSpace(trangThai))
                 filteredDon = filteredDon.Where(d => string.Equals(NormalizeStatus(d.TrangThaiDon), trangThai.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(tuKhoa))
+            {
+                var keyword = tuKhoa.Trim();
+                filteredDon = filteredDon.Where(d =>
+                    (!string.IsNullOrWhiteSpace(d.NguoiDung?.HoTen) && d.NguoiDung.HoTen.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(d.NguoiDung?.TenDangNhap) && d.NguoiDung.TenDangNhap.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(d.NguoiDung?.SDT) && d.NguoiDung.SDT.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            filteredDon = (sapXep ?? "created_desc").Trim().ToLowerInvariant() switch
+            {
+                "created_asc" => filteredDon.OrderBy(d => d.NgayTao),
+                "playdate_desc" => filteredDon.OrderByDescending(d => d.NgayChoi),
+                "playdate_asc" => filteredDon.OrderBy(d => d.NgayChoi),
+                "total_desc" => filteredDon.OrderByDescending(d => d.TongTien ?? 0),
+                "total_asc" => filteredDon.OrderBy(d => d.TongTien ?? 0),
+                _ => filteredDon.OrderByDescending(d => d.NgayTao)
+            };
 
             ViewBag.SanOptions = (object)sanOptions;
             ViewBag.KhungGioOptions = (object)khungGioOptions;
             ViewBag.TrangThaiOptions = (object)trangThaiOptions;
             ViewBag.SelectedSanId = sanId;
             ViewBag.SelectedKhungGio = khungGio;
-            ViewBag.SelectedNgayTao = ngayTao;
+            ViewBag.SelectedNgayChoiTu = ngayChoiTu;
+            ViewBag.SelectedNgayChoiDen = ngayChoiDen;
             ViewBag.SelectedTrangThai = trangThai;
+            ViewBag.SelectedSapXep = sapXep;
+            ViewBag.SelectedTuKhoa = tuKhoa;
 
             return View("~/Views/Manager/Bookings.cshtml", filteredDon.ToList());
         }
@@ -395,6 +421,79 @@ namespace Pickleball_Smash.Controllers
             var role = HttpContext.Session.GetString("VaiTro");
             if (string.IsNullOrWhiteSpace(role)) return true;
             return role.Equals("Manager", StringComparison.OrdinalIgnoreCase) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task AutoCheckoutExpiredConfirmedBookings()
+        {
+            var now = DateTime.Now;
+            var today = DateOnly.FromDateTime(now);
+
+            var candidates = await _context.DonDatSan
+                .Include(d => d.SanPickleball)
+                .Where(d => d.TrangThaiDon != null
+                    && d.TrangThaiDon.Trim() == "Đã xác nhận"
+                    && d.NgayChoi.HasValue)
+                .ToListAsync();
+
+            if (!candidates.Any()) return;
+
+            var changed = false;
+            foreach (var don in candidates)
+            {
+                var ngayChoi = don.NgayChoi!.Value;
+                var shouldCheckout = false;
+
+                if (ngayChoi < today)
+                {
+                    shouldCheckout = true;
+                }
+                else if (ngayChoi == today && !string.IsNullOrWhiteSpace(don.KhungGio))
+                {
+                    var hours = don.KhungGio
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(p => int.TryParse(p.Trim(), out var h) ? h : -1)
+                        .Where(h => h >= 0 && h <= 23)
+                        .ToList();
+
+                    if (hours.Any())
+                    {
+                        var endHour = hours.Max() + 1;
+                        var endTime = now.Date.AddHours(endHour);
+                        shouldCheckout = now >= endTime;
+                    }
+                }
+
+                if (!shouldCheckout) continue;
+
+                don.TrangThaiDon = "Hoàn thành";
+                if (don.SanPickleball != null)
+                {
+                    don.SanPickleball.TrangThai = "Trống";
+                    _context.SanPickleball.Update(don.SanPickleball);
+                }
+
+                var hasPayment = await _context.ThanhToan.AnyAsync(x => x.DonDatSanID == don.DonDatSanID);
+                if (!hasPayment)
+                {
+                    _context.ThanhToan.Add(new ThanhToan
+                    {
+                        DonDatSanID = don.DonDatSanID,
+                        PhuongThuc = "Tiền mặt tại quầy",
+                        SoTien = don.TongTien ?? 0,
+                        MaGiaoDich = $"AUTO-{don.DonDatSanID}-{DateTime.Now:yyyyMMddHHmmss}",
+                        TrangThai = "Hoàn thành",
+                        NgayThanhToan = DateTime.Now
+                    });
+                }
+
+                _context.DonDatSan.Update(don);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                await _context.SaveChangesAsync();
+            }
         }
 
         public static string FormatBookingTimeRange(DonDatSan booking)

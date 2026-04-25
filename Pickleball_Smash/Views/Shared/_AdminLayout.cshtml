@@ -96,6 +96,8 @@
                                      height="35">
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                <li><button type="button" class="dropdown-item" id="openProfileModalBtn"><i class="fas fa-user me-2"></i>Thông tin cá nhân</button></li>
+                                <li><button type="button" class="dropdown-item" id="openChangePasswordModalBtn"><i class="fas fa-key me-2"></i>Đổi mật khẩu</button></li>
                             </ul>
                         </div>
                     </div>
@@ -108,6 +110,68 @@
                 <form id="adminAntiForgeryForm" method="post" class="d-none">
                     @Html.AntiForgeryToken()
                 </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="adminProfileModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Thông tin cá nhân</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Họ tên</label>
+                            <input type="text" class="form-control" id="adminProfileFullName">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="adminProfileEmail">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Số điện thoại</label>
+                            <input type="text" class="form-control" id="adminProfilePhone">
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Giới tính</label>
+                            <select class="form-select" id="adminProfileGender">
+                                <option value="">Chưa chọn</option>
+                                <option value="Nam">Nam</option>
+                                <option value="Nữ">Nữ</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="button" class="btn btn-primary" id="saveAdminProfileBtn">Lưu thay đổi</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="adminChangePasswordModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Đổi mật khẩu</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Mật khẩu cũ</label>
+                            <input type="password" class="form-control" id="adminOldPassword">
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Mật khẩu mới</label>
+                            <input type="password" class="form-control" id="adminNewPassword">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="button" class="btn btn-primary" id="saveAdminPasswordBtn">Cập nhật mật khẩu</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -282,6 +346,97 @@
                         form.submit();
                     });
                 });
+
+                const profileModalEl = document.getElementById("adminProfileModal");
+                const changePasswordModalEl = document.getElementById("adminChangePasswordModal");
+                const openProfileBtn = document.getElementById("openProfileModalBtn");
+                const openPasswordBtn = document.getElementById("openChangePasswordModalBtn");
+                const saveProfileBtn = document.getElementById("saveAdminProfileBtn");
+                const savePasswordBtn = document.getElementById("saveAdminPasswordBtn");
+
+                const profileModal = profileModalEl ? new bootstrap.Modal(profileModalEl) : null;
+                const passwordModal = changePasswordModalEl ? new bootstrap.Modal(changePasswordModalEl) : null;
+
+                if (openProfileBtn && profileModal) {
+                    openProfileBtn.addEventListener("click", async function () {
+                        try {
+                            const res = await fetch('@Url.Action("MyProfile", "AdminUser")');
+                            const result = await res.json();
+                            if (!res.ok || !result?.success) {
+                                Swal.fire({ icon: "error", text: result?.message || "Không tải được thông tin cá nhân." });
+                                return;
+                            }
+                            document.getElementById("adminProfileFullName").value = result.data?.hoTen || "";
+                            document.getElementById("adminProfileEmail").value = result.data?.email || "";
+                            document.getElementById("adminProfilePhone").value = result.data?.sdt || "";
+                            document.getElementById("adminProfileGender").value = result.data?.gioiTinh || "";
+                            profileModal.show();
+                        } catch {
+                            Swal.fire({ icon: "error", text: "Lỗi kết nối máy chủ." });
+                        }
+                    });
+                }
+
+                if (saveProfileBtn && profileModal) {
+                    saveProfileBtn.addEventListener("click", async function () {
+                        const payload = {
+                            fullName: document.getElementById("adminProfileFullName").value.trim(),
+                            email: document.getElementById("adminProfileEmail").value.trim(),
+                            phone: document.getElementById("adminProfilePhone").value.trim(),
+                            gender: document.getElementById("adminProfileGender").value
+                        };
+
+                        try {
+                            const res = await fetch('@Url.Action("UpdateMyProfile", "AdminUser")', {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+                            const result = await res.json();
+                            if (!res.ok || !result?.success) {
+                                Swal.fire({ icon: "error", text: result?.message || "Không thể cập nhật thông tin." });
+                                return;
+                            }
+                            Swal.fire({ icon: "success", text: result.message || "Cập nhật thành công." });
+                            profileModal.hide();
+                        } catch {
+                            Swal.fire({ icon: "error", text: "Lỗi kết nối máy chủ." });
+                        }
+                    });
+                }
+
+                if (openPasswordBtn && passwordModal) {
+                    openPasswordBtn.addEventListener("click", function () {
+                        document.getElementById("adminOldPassword").value = "";
+                        document.getElementById("adminNewPassword").value = "";
+                        passwordModal.show();
+                    });
+                }
+
+                if (savePasswordBtn && passwordModal) {
+                    savePasswordBtn.addEventListener("click", async function () {
+                        const payload = {
+                            oldPassword: document.getElementById("adminOldPassword").value,
+                            newPassword: document.getElementById("adminNewPassword").value
+                        };
+                        try {
+                            const res = await fetch('@Url.Action("ChangeMyPassword", "AdminUser")', {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+                            const result = await res.json();
+                            if (!res.ok || !result?.success) {
+                                Swal.fire({ icon: "error", text: result?.message || "Không thể đổi mật khẩu." });
+                                return;
+                            }
+                            Swal.fire({ icon: "success", text: result.message || "Đổi mật khẩu thành công." });
+                            passwordModal.hide();
+                        } catch {
+                            Swal.fire({ icon: "error", text: "Lỗi kết nối máy chủ." });
+                        }
+                    });
+                }
             });
         </script>
         @await RenderSectionAsync("Scripts", required: false)

@@ -1,0 +1,76 @@
+@model Pickleball_Smash.Models.DonDatSan
+
+@{
+    ViewData["Title"] = $"Chi tiết đơn #{Model.DonDatSanID}";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h1 class="h3 mb-1 text-dark">
+                <i class="fas fa-receipt"></i> Chi tiết đơn #@Model.DonDatSanID
+            </h1>
+            <div class="text-muted">Tạo lúc: @Model.NgayTao?.ToString("dd/MM/yyyy HH:mm")</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="@Url.Action("Index", "AdminDonDatSan")">Quay lại</a>
+            <a class="btn btn-outline-secondary"
+               href="@Url.Action("InvoicePdf", "AdminDonDatSan", new { id = Model.DonDatSanID, download = true })">
+                Tải PDF
+            </a>
+            <a class="btn btn-primary"
+               target="_blank"
+               href="@Url.Action("InvoicePdf", "AdminDonDatSan", new { id = Model.DonDatSanID, download = false })">
+                In hoá đơn
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <strong>Thông tin khách hàng</strong>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2"><strong>Họ tên:</strong> @(Model.NguoiDung?.HoTen ?? "-")</div>
+                    <div class="mb-2"><strong>Tên đăng nhập:</strong> @(Model.NguoiDung?.TenDangNhap ?? "-")</div>
+                    <div class="mb-2"><strong>SĐT:</strong> @(Model.NguoiDung?.SDT ?? "-")</div>
+                    <div class="mb-0"><strong>Email:</strong> @(Model.NguoiDung?.Email ?? "-")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <strong>Thông tin đặt sân</strong>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2"><strong>Sân:</strong> @(Model.SanPickleball?.TenSan ?? "-")</div>
+                    <div class="mb-2"><strong>Ngày chơi:</strong> @Model.NgayChoi?.ToString("dd/MM/yyyy")</div>
+                    <div class="mb-2"><strong>Khung giờ:</strong> @Pickleball_Smash.Controllers.ManagerDonDatSanController.FormatBookingTimeRange(Model)</div>
+                    <div class="mb-0"><strong>Trạng thái:</strong> @(Model.TrangThaiDon ?? "-")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <strong>Thanh toán</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3"><strong>Tổng tiền:</strong> @((Model.TongTien ?? 0).ToString("N0")) đ</div>
+                        <div class="col-md-3"><strong>Giảm:</strong> @((Model.SoTienGiam ?? 0).ToString("N0")) đ</div>
+                        <div class="col-md-3"><strong>Voucher:</strong> @(Model.Voucher?.MaVoucher ?? "-")</div>
+                        <div class="col-md-3"><strong>Thành tiền:</strong> @((Model.TongTien ?? 0).ToString("N0")) đ</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

@@ -24,7 +24,7 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label>Họ tên</label>
-                    <input class="form-control" value="@(Model.HoTen ?? "-")" readonly />
+                    <input class="form-control" id="managerProfileFullName" value="@(Model.HoTen ?? "")" />
                 </div>
                 <div class="col-md-6">
                     <label>Tên đăng nhập</label>
@@ -32,11 +32,34 @@
                 </div>
                 <div class="col-md-6">
                     <label>Email</label>
-                    <input class="form-control" value="@(Model.Email ?? "-")" readonly />
+                    <input class="form-control" id="managerProfileEmail" value="@(Model.Email ?? "")" />
                 </div>
                 <div class="col-md-6">
                     <label>Số điện thoại</label>
-                    <input class="form-control" value="@(Model.SDT ?? "-")" readonly />
+                    <input class="form-control" id="managerProfilePhone" value="@(Model.SDT ?? "")" />
+                </div>
+                <div class="col-md-6">
+                    <label>Giới tính</label>
+                    <select class="form-select" id="managerProfileGender">
+                        @if ((Model.GioiTinh ?? "") == "Nam")
+                        {
+                            <option value="">Chưa chọn</option>
+                            <option value="Nam" selected>Nam</option>
+                            <option value="Nữ">Nữ</option>
+                        }
+                        else if ((Model.GioiTinh ?? "") == "Nữ")
+                        {
+                            <option value="">Chưa chọn</option>
+                            <option value="Nam">Nam</option>
+                            <option value="Nữ" selected>Nữ</option>
+                        }
+                        else
+                        {
+                            <option value="" selected>Chưa chọn</option>
+                            <option value="Nam">Nam</option>
+                            <option value="Nữ">Nữ</option>
+                        }
+                    </select>
                 </div>
                 <div class="col-md-6">
                     <label>Vai trò</label>
@@ -46,6 +69,10 @@
                     <label>Ngày tạo</label>
                     <input class="form-control" value="@(Model.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")" readonly />
                 </div>
+                <div class="col-12 d-flex gap-2 pt-2">
+                    <button type="button" class="btn btn-primary" id="saveManagerProfileBtn">Lưu thông tin</button>
+                    <button type="button" class="btn btn-outline-dark" id="openManagerChangePasswordBtn">Đổi mật khẩu</button>
+                </div>
             </div>
         </div>
     }
@@ -54,3 +81,99 @@
         <div class="empty-state">Chưa có tài khoản Manager trong hệ thống.</div>
     }
 </div>
+
+<div class="modal fade" id="managerChangePasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Đổi mật khẩu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Mật khẩu cũ</label>
+                    <input type="password" class="form-control" id="managerOldPassword">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label">Mật khẩu mới</label>
+                    <input type="password" class="form-control" id="managerNewPassword">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="saveManagerPasswordBtn">Cập nhật mật khẩu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const saveProfileBtn = document.getElementById("saveManagerProfileBtn");
+            const openPasswordBtn = document.getElementById("openManagerChangePasswordBtn");
+            const savePasswordBtn = document.getElementById("saveManagerPasswordBtn");
+            const passwordModalEl = document.getElementById("managerChangePasswordModal");
+            const passwordModal = passwordModalEl ? new bootstrap.Modal(passwordModalEl) : null;
+
+            saveProfileBtn?.addEventListener("click", async function () {
+                const payload = {
+                    fullName: document.getElementById("managerProfileFullName")?.value?.trim() || "",
+                    email: document.getElementById("managerProfileEmail")?.value?.trim() || "",
+                    phone: document.getElementById("managerProfilePhone")?.value?.trim() || "",
+                    gender: document.getElementById("managerProfileGender")?.value || ""
+                };
+
+                try {
+                    const response = await fetch('@Url.Action("UpdateMyProfile", "Manager")', {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok || !result?.success) {
+                        Swal.fire({ icon: "error", text: result?.message || "Không thể cập nhật thông tin." });
+                        return;
+                    }
+
+                    Swal.fire({ icon: "success", text: result.message || "Cập nhật thông tin thành công." });
+                } catch {
+                    Swal.fire({ icon: "error", text: "Lỗi kết nối máy chủ." });
+                }
+            });
+
+            openPasswordBtn?.addEventListener("click", function () {
+                document.getElementById("managerOldPassword").value = "";
+                document.getElementById("managerNewPassword").value = "";
+                passwordModal?.show();
+            });
+
+            savePasswordBtn?.addEventListener("click", async function () {
+                const payload = {
+                    oldPassword: document.getElementById("managerOldPassword")?.value || "",
+                    newPassword: document.getElementById("managerNewPassword")?.value || ""
+                };
+
+                try {
+                    const response = await fetch('@Url.Action("ChangeMyPassword", "Manager")', {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok || !result?.success) {
+                        Swal.fire({ icon: "error", text: result?.message || "Không thể đổi mật khẩu." });
+                        return;
+                    }
+
+                    Swal.fire({ icon: "success", text: result.message || "Đổi mật khẩu thành công." });
+                    passwordModal?.hide();
+                } catch {
+                    Swal.fire({ icon: "error", text: "Lỗi kết nối máy chủ." });
+                }
+            });
+        })();
+    </script>
+}

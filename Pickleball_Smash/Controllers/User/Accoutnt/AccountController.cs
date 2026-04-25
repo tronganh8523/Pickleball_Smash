@@ -22,10 +22,15 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
                 return Json(new { success = false, message = "Vui lòng nhập đầy đủ thông tin." });
             }
 
+            // Backward-compatible: UI may still send "KhachHang", but DB role is "User".
+            var normalizedRole = string.Equals(request.Role?.Trim(), "KhachHang", StringComparison.OrdinalIgnoreCase)
+                ? "User"
+                : request.Role?.Trim();
+
             var user = await _context.NguoiDung.FirstOrDefaultAsync(u =>
                 (u.TenDangNhap == request.Username || u.Email == request.Username || u.SDT == request.Username)
                 && u.MatKhau == request.Password
-                && u.VaiTro == request.Role);
+                && u.VaiTro == normalizedRole);
 
             if (user == null)
             {
@@ -34,7 +39,7 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
 
             HttpContext.Session.SetInt32("UserID", user.NguoiDungID);
             HttpContext.Session.SetString("HoTen", user.HoTen ?? user.TenDangNhap);
-            HttpContext.Session.SetString("VaiTro", user.VaiTro ?? "KhachHang");
+            HttpContext.Session.SetString("VaiTro", user.VaiTro ?? "User");
 
             return Json(new { success = true });
         }
@@ -70,7 +75,7 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
                 Email = request.Email,
                 SDT = request.Phone,
                 GioiTinh = request.Gender,
-                VaiTro = "KhachHang",
+                VaiTro = "User",
                 NgayTao = DateTime.Now
             };
 

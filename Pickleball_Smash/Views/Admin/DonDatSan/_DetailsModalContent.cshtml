@@ -1,0 +1,36 @@
+@model Pickleball_Smash.Models.DonDatSan
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="border rounded p-3 h-100">
+            <div class="fw-semibold mb-2">Thông tin khách hàng</div>
+            <div class="mb-1"><strong>Họ tên:</strong> @(Model.NguoiDung?.HoTen ?? "-")</div>
+            <div class="mb-1"><strong>Tên đăng nhập:</strong> @(Model.NguoiDung?.TenDangNhap ?? "-")</div>
+            <div class="mb-1"><strong>SĐT:</strong> @(Model.NguoiDung?.SDT ?? "-")</div>
+            <div class="mb-0"><strong>Email:</strong> @(Model.NguoiDung?.Email ?? "-")</div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="border rounded p-3 h-100">
+            <div class="fw-semibold mb-2">Thông tin đặt sân</div>
+            <div class="mb-1"><strong>Sân:</strong> @(Model.SanPickleball?.TenSan ?? "-")</div>
+            <div class="mb-1"><strong>Ngày chơi:</strong> @Model.NgayChoi?.ToString("dd/MM/yyyy")</div>
+            <div class="mb-1"><strong>Khung giờ:</strong> @Pickleball_Smash.Controllers.ManagerDonDatSanController.FormatBookingTimeRange(Model)</div>
+            <div class="mb-0"><strong>Trạng thái:</strong> @(Model.TrangThaiDon ?? "-")</div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="border rounded p-3">
+            <div class="fw-semibold mb-2">Thanh toán</div>
+            <div class="row g-2">
+                <div class="col-md-3"><strong>Tổng tiền:</strong> @((Model.TongTien ?? 0).ToString("N0")) đ</div>
+                <div class="col-md-3"><strong>Giảm:</strong> @((Model.SoTienGiam ?? 0).ToString("N0")) đ</div>
+                <div class="col-md-3"><strong>Voucher:</strong> @(Model.Voucher?.MaVoucher ?? "-")</div>
+                <div class="col-md-3"><strong>Ngày tạo:</strong> @Model.NgayTao?.ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
