@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
+using Pickleball_Smash.Filters;
 using Pickleball_Smash.Models;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Pickleball_Smash.Controllers
 {
+    [AdminAuthorize]
     public class AdminUserController : Controller
     {
         private readonly AppDbContext _context;
@@ -83,19 +85,28 @@ namespace Pickleball_Smash.Controllers
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
 
-            if (string.IsNullOrWhiteSpace(request.OldPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
-                return BadRequest(new { success = false, message = "Vui lòng nhập đầy đủ mật khẩu cũ và mới." });
+            if (string.IsNullOrWhiteSpace(request.OldPassword) || string.IsNullOrWhiteSpace(request.NewPassword) || string.IsNullOrWhiteSpace(request.ConfirmPassword))
+                return BadRequest(new { success = false, message = "Vui lòng nhập đầy đủ mật khẩu cũ, mật khẩu mới và xác nhận mật khẩu." });
 
             if (request.NewPassword.Length < 8)
                 return BadRequest(new { success = false, message = "Mật khẩu mới phải có ít nhất 8 ký tự." });
 
+            if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+                return BadRequest(new { success = false, message = "Mật khẩu xác nhận không khớp." });
+
             var user = await _context.NguoiDung.FindAsync(userId.Value);
             if (user == null) return NotFound(new { success = false, message = "Không tìm thấy tài khoản." });
 
-            if (!string.Equals(user.MatKhau, request.OldPassword))
+            var isOldPasswordCorrect = !string.IsNullOrWhiteSpace(user.MatKhau) && user.MatKhau.StartsWith("$2", StringComparison.Ordinal)
+                ? BCrypt.Net.BCrypt.Verify(request.OldPassword, user.MatKhau)
+                : string.Equals(user.MatKhau, request.OldPassword, StringComparison.Ordinal);
+
+            if (!isOldPasswordCorrect)
                 return BadRequest(new { success = false, message = "Mật khẩu cũ không chính xác." });
 
-            user.MatKhau = request.NewPassword;
+            user.MatKhau = (!string.IsNullOrWhiteSpace(user.MatKhau) && user.MatKhau.StartsWith("$2", StringComparison.Ordinal))
+                ? BCrypt.Net.BCrypt.HashPassword(request.NewPassword)
+                : request.NewPassword;
             await _context.SaveChangesAsync();
 
             return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
@@ -312,6 +323,7 @@ namespace Pickleball_Smash.Controllers
         {
             public string OldPassword { get; set; } = string.Empty;
             public string NewPassword { get; set; } = string.Empty;
+            public string ConfirmPassword { get; set; } = string.Empty;
         }
     }
 }

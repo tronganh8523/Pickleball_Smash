@@ -22,15 +22,20 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
                 return Json(new { success = false, message = "Vui lòng nhập đầy đủ thông tin." });
             }
 
-            // Backward-compatible: UI may still send "KhachHang", but DB role is "User".
-            var normalizedRole = string.Equals(request.Role?.Trim(), "KhachHang", StringComparison.OrdinalIgnoreCase)
-                ? "User"
-                : request.Role?.Trim();
+            // Backward-compatible role mapping from UI labels to DB role values.
+            var normalizedRole = NormalizeRole(request.Role);
 
-            var user = await _context.NguoiDung.FirstOrDefaultAsync(u =>
-                (u.TenDangNhap == request.Username || u.Email == request.Username || u.SDT == request.Username)
-                && u.MatKhau == request.Password
-                && u.VaiTro == normalizedRole);
+            var loginValue = request.Username.Trim();
+            var users = await _context.NguoiDung
+                .Where(u =>
+                    (u.TenDangNhap == loginValue || u.Email == loginValue || u.SDT == loginValue))
+                .ToListAsync();
+
+            var user = users.FirstOrDefault(u =>
+                normalizedRole != null
+                && !string.IsNullOrWhiteSpace(u.VaiTro)
+                && u.VaiTro.Equals(normalizedRole, StringComparison.OrdinalIgnoreCase)
+                && IsPasswordMatch(u.MatKhau, request.Password));
 
             if (user == null)
             {
@@ -41,7 +46,8 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             HttpContext.Session.SetString("HoTen", user.HoTen ?? user.TenDangNhap);
             HttpContext.Session.SetString("VaiTro", user.VaiTro ?? "User");
 
-            return Json(new { success = true });
+            var redirectUrl = GetPostLoginRedirectUrl(user.VaiTro);
+            return Json(new { success = true, role = user.VaiTro, redirectUrl });
         }
 
         [HttpPost]
@@ -70,7 +76,7 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             var newUser = new NguoiDung
             {
                 TenDangNhap = request.Username,
-                MatKhau = request.Password,
+                MatKhau = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 HoTen = request.FullName,
                 Email = request.Email,
                 SDT = request.Phone,
@@ -126,10 +132,10 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             // Kiểm tra mật khẩu cũ nếu người dùng muốn đổi mật khẩu
             if (!string.IsNullOrEmpty(request.NewPassword))
             {
-                if (user.MatKhau != request.OldPassword)
+                if (!IsPasswordMatch(user.MatKhau, request.OldPassword ?? string.Empty))
                     return Json(new { success = false, message = "Mật khẩu cũ không chính xác!" });
 
-                user.MatKhau = request.NewPassword;
+                user.MatKhau = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             }
 
             // Cập nhật các thông tin khác
@@ -171,6 +177,46 @@ namespace Pickleball_Smash.Controllers.User.Accoutnt
             public string? Gender { get; set; }
             public string? OldPassword { get; set; }
             public string? NewPassword { get; set; }
+        }
+
+        private static string? NormalizeRole(string? role)
+        {
+            if (string.IsNullOrWhiteSpace(role)) return null;
+
+            var trimmedRole = role.Trim();
+            if (trimmedRole.Equals("KhachHang", StringComparison.OrdinalIgnoreCase)) return "User";
+            if (trimmedRole.Equals("NhanVien", StringComparison.OrdinalIgnoreCase)) return "Manager";
+            if (trimmedRole.Equals("Nhân viên", StringComparison.OrdinalIgnoreCase)) return "Manager";
+            return trimmedRole;
+        }
+
+        private static bool IsPasswordMatch(string? storedPassword, string inputPassword)
+        {
+            if (string.IsNullOrWhiteSpace(storedPassword)) return false;
+
+            if (storedPassword.StartsWith("$2", StringComparison.Ordinal))
+            {
+                return BCrypt.Net.BCrypt.Verify(inputPassword, storedPassword);
+            }
+
+            return string.Equals(storedPassword, inputPassword, StringComparison.Ordinal);
+        }
+
+        private static string GetPostLoginRedirectUrl(string? role)
+        {
+            if (string.IsNullOrWhiteSpace(role)) return "/";
+
+            if (role.Equals("Manager", StringComparison.OrdinalIgnoreCase))
+            {
+                return "/Manager/Dashboard";
+            }
+
+            if (role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                return "/wp-admin";
+            }
+
+            return "/";
         }
     }
 }

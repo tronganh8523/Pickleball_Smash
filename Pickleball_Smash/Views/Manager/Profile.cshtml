@@ -98,6 +98,10 @@
                     <label class="form-label">Mật khẩu mới</label>
                     <input type="password" class="form-control" id="managerNewPassword">
                 </div>
+                <div class="mt-3 mb-0">
+                    <label class="form-label">Nhập lại mật khẩu mới</label>
+                    <input type="password" class="form-control" id="managerConfirmPassword">
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
@@ -146,13 +150,24 @@
             openPasswordBtn?.addEventListener("click", function () {
                 document.getElementById("managerOldPassword").value = "";
                 document.getElementById("managerNewPassword").value = "";
+                document.getElementById("managerConfirmPassword").value = "";
                 passwordModal?.show();
             });
 
             savePasswordBtn?.addEventListener("click", async function () {
+                const oldPassword = document.getElementById("managerOldPassword")?.value || "";
+                const newPassword = document.getElementById("managerNewPassword")?.value || "";
+                const confirmNewPassword = document.getElementById("managerConfirmPassword")?.value || "";
+
+                if (newPassword !== confirmNewPassword) {
+                    Swal.fire({ icon: "error", text: "Nhập lại mật khẩu mới không khớp." });
+                    return;
+                }
+
                 const payload = {
-                    oldPassword: document.getElementById("managerOldPassword")?.value || "",
-                    newPassword: document.getElementById("managerNewPassword")?.value || ""
+                    oldPassword: oldPassword,
+                    newPassword: newPassword,
+                    confirmNewPassword: confirmNewPassword
                 };
 
                 try {

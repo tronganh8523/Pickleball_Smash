@@ -2,12 +2,14 @@
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
+using Pickleball_Smash.Filters;
 using Pickleball_Smash.Models;
 using Pickleball_Smash.Models.ViewModels;
 using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
+    [AdminAuthorize]
     public class AdminBangGiaKhungGioController : Controller
     {
         private readonly AppDbContext _context;

@@ -34,8 +34,8 @@ using (var scope = app.Services.CreateScope())
         db.NguoiDung.Add(new Pickleball_Smash.Models.NguoiDung
         {
             TenDangNhap = "admin",
-            MatKhau = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-            Email = "admin@pickleball.local",
+            MatKhau = BCrypt.Net.BCrypt.HashPassword("1"),
+            Email = "adminPickleballSmash@gmail.com",
             HoTen = "System Admin",
             VaiTro = "Admin",
             NgayTao = DateTime.Now
@@ -47,8 +47,8 @@ using (var scope = app.Services.CreateScope())
         db.NguoiDung.Add(new Pickleball_Smash.Models.NguoiDung
         {
             TenDangNhap = "user01",
-            MatKhau = BCrypt.Net.BCrypt.HashPassword("User@123"),
-            Email = "user01@pickleball.local",
+            MatKhau = BCrypt.Net.BCrypt.HashPassword("1"),
+            Email = "user01PickleballSmash@gmail.com",
             HoTen = "System User",
             VaiTro = "User",
             NgayTao = DateTime.Now
@@ -60,8 +60,8 @@ using (var scope = app.Services.CreateScope())
         db.NguoiDung.Add(new Pickleball_Smash.Models.NguoiDung
         {
             TenDangNhap = "manager01",
-            MatKhau = BCrypt.Net.BCrypt.HashPassword("Manager@123"),
-            Email = "manager01@pickleball.local",
+            MatKhau = BCrypt.Net.BCrypt.HashPassword("1"),
+            Email = "manager01PickleballSmash@gmail.com",
             HoTen = "System Manager",
             VaiTro = "Manager",
             NgayTao = DateTime.Now

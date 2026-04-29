@@ -98,6 +98,15 @@
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0">
                                 <li><button type="button" class="dropdown-item" id="openProfileModalBtn"><i class="fas fa-user me-2"></i>Thông tin cá nhân</button></li>
                                 <li><button type="button" class="dropdown-item" id="openChangePasswordModalBtn"><i class="fas fa-key me-2"></i>Đổi mật khẩu</button></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post" action="/wp-admin/logout" class="m-0">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="fas fa-right-from-bracket me-2"></i>Đăng xuất
+                                        </button>
+                                    </form>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -162,9 +171,13 @@
                             <label class="form-label">Mật khẩu cũ</label>
                             <input type="password" class="form-control" id="adminOldPassword">
                         </div>
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label class="form-label">Mật khẩu mới</label>
                             <input type="password" class="form-control" id="adminNewPassword">
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">Nhập lại mật khẩu mới</label>
+                            <input type="password" class="form-control" id="adminConfirmPassword">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -409,15 +422,31 @@
                     openPasswordBtn.addEventListener("click", function () {
                         document.getElementById("adminOldPassword").value = "";
                         document.getElementById("adminNewPassword").value = "";
+                        document.getElementById("adminConfirmPassword").value = "";
                         passwordModal.show();
                     });
                 }
 
                 if (savePasswordBtn && passwordModal) {
                     savePasswordBtn.addEventListener("click", async function () {
+                        const oldPassword = document.getElementById("adminOldPassword").value;
+                        const newPassword = document.getElementById("adminNewPassword").value;
+                        const confirmPassword = document.getElementById("adminConfirmPassword").value;
+
+                        if (!oldPassword || !newPassword || !confirmPassword) {
+                            Swal.fire({ icon: "warning", text: "Vui lòng nhập đầy đủ mật khẩu cũ, mới và xác nhận mật khẩu." });
+                            return;
+                        }
+
+                        if (newPassword !== confirmPassword) {
+                            Swal.fire({ icon: "warning", text: "Mật khẩu xác nhận không khớp." });
+                            return;
+                        }
+
                         const payload = {
-                            oldPassword: document.getElementById("adminOldPassword").value,
-                            newPassword: document.getElementById("adminNewPassword").value
+                            oldPassword: oldPassword,
+                            newPassword: newPassword,
+                            confirmPassword: confirmPassword
                         };
                         try {
                             const res = await fetch('@Url.Action("ChangeMyPassword", "AdminUser")', {

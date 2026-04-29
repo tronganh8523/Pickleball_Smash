@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
+using Pickleball_Smash.Filters;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -9,6 +10,7 @@ using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
+    [AdminAuthorize]
     public class AdminController : Controller
     {
         private readonly AppDbContext _context;

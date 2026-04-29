@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
+using Pickleball_Smash.Filters;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -9,6 +10,7 @@ using System.Globalization;
 
 namespace Pickleball_Smash.Controllers
 {
+    [AdminAuthorize]
     public class AdminDonDatSanController : Controller
     {
         private readonly AppDbContext _context;

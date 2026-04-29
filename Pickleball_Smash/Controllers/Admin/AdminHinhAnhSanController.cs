@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pickleball_Smash.Data;
+using Pickleball_Smash.Filters;
 using Pickleball_Smash.Models;
 using System.Text.Json;
 
 namespace Pickleball_Smash.Controllers
 {
+    [AdminAuthorize]
     public class AdminHinhAnhSanController : Controller
     {
         private readonly AppDbContext _context;
