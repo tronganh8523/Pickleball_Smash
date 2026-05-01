@@ -18,7 +18,7 @@ namespace Pickleball_Smash.Controllers
 
         public async Task<IActionResult> Bookings(int? sanId, string? khungGio, string? ngayChoiTu, string? ngayChoiDen, string? trangThai, string? sapXep, string? tuKhoa)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
             await AutoCheckoutExpiredConfirmedBookings();
 
             var tatCaDon = await _context.DonDatSan
@@ -106,7 +106,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> ConfirmBooking([FromBody] ManagerCheckoutCourtRequest request)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
             if (request == null || request.SanID <= 0 || request.BookingID <= 0) return BadRequest(new { success = false, message = "Dữ liệu xác nhận không hợp lệ." });
 
             var donDat = await _context.DonDatSan.Include(x => x.SanPickleball).FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
@@ -123,7 +123,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> CheckoutCourt([FromBody] ManagerCheckoutCourtRequest request)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
             if (request == null || request.SanID <= 0 || request.BookingID <= 0) return BadRequest(new { success = false, message = "Dữ liệu check-out không hợp lệ." });
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -185,7 +185,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> CancelBooking([FromBody] ManagerCheckoutCourtRequest request)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
             if (request == null || request.SanID <= 0 || request.BookingID <= 0) return BadRequest(new { success = false, message = "Dữ liệu hủy đơn không hợp lệ." });
 
             var donDat = await _context.DonDatSan.FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
@@ -202,7 +202,7 @@ namespace Pickleball_Smash.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBookingForEdit(int id)
         {
-            if (!HasManagerAccess()) return Json(new { success = false, message = "Không có quyền truy cập." });
+            if (!HasManagerAccess()) return NotFound();
 
             var donDat = await _context.DonDatSan
                 .Include(d => d.NguoiDung)
@@ -248,7 +248,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> UpdateBooking([FromBody] ManagerUpdateBookingRequest request)
         {
-            if (!HasManagerAccess()) return Json(new { success = false, message = "Không có quyền truy cập." });
+            if (!HasManagerAccess()) return NotFound();
             if (request == null || request.DonDatSanID <= 0) return Json(new { success = false, message = "Dữ liệu cập nhật không hợp lệ." });
 
             var donDat = await _context.DonDatSan
@@ -328,16 +328,50 @@ namespace Pickleball_Smash.Controllers
                 }
             }
 
-            // Get available price for the selected time slots
-            var bangGia = await _context.BangGiaKhungGio
-                .Where(b => b.SanID == request.SanID)
-                .FirstOrDefaultAsync();
-
-            if (bangGia == null)
-                return Json(new { success = false, message = "Không tìm thấy giá cho sân này." });
-
             var khungGioStr = string.Join(",", selectedHours);
-            var tongTien = selectedHours.Count * (bangGia.GiaTien ?? 0);
+            var bangGiaKhungGio = await _context.BangGiaKhungGio
+                .AsNoTracking()
+                .Where(x => x.SanID == request.SanID && !string.IsNullOrWhiteSpace(x.KhungGio) && x.GiaTien.HasValue)
+                .Select(x => new
+                {
+                    x.KhungGio,
+                    GiaTien = x.GiaTien
+                })
+                .ToListAsync();
+
+            var giaTheoGio = new Dictionary<int, decimal>();
+            foreach (var row in bangGiaKhungGio)
+            {
+                if (!TryParseKhungGioHours(row.KhungGio, out var hours))
+                {
+                    continue;
+                }
+
+                foreach (var hour in hours)
+                {
+                    if (!giaTheoGio.ContainsKey(hour))
+                    {
+                        giaTheoGio[hour] = row.GiaTien!.Value;
+                    }
+                }
+            }
+
+            var sanForPrice = await _context.SanPickleball
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.SanID == request.SanID);
+
+            var giaCoBan = sanForPrice?.GiaCoBan ?? 0;
+            decimal tongTien = 0;
+            foreach (var hour in selectedHours)
+            {
+                var donGia = giaTheoGio.TryGetValue(hour, out var giaTheoKhung) ? giaTheoKhung : giaCoBan;
+                if (donGia <= 0)
+                {
+                    return Json(new { success = false, message = "Sân chưa được cấu hình giá hợp lệ cho khung giờ đã chọn." });
+                }
+
+                tongTien += donGia;
+            }
 
             // Update booking
             donDat.SanID = request.SanID;
@@ -354,7 +388,7 @@ namespace Pickleball_Smash.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAvailableTimeSlots(int sanId, string ngayChoi, int? excludeBookingId = null)
         {
-            if (!HasManagerAccess()) return Json(new { success = false, message = "Không có quyền truy cập." });
+            if (!HasManagerAccess()) return NotFound();
             
             if (!DateOnly.TryParse(ngayChoi, out var selectedDate))
                 return Json(new { success = false, message = "Ngày không hợp lệ." });
@@ -408,18 +442,56 @@ namespace Pickleball_Smash.Controllers
                 });
             }
 
-            var giaTien = await _context.BangGiaKhungGio
-                .Where(b => b.SanID == sanId)
-                .Select(b => b.GiaTien ?? 0)
+            var pricingRows = await _context.BangGiaKhungGio
+                .AsNoTracking()
+                .Where(x => x.SanID == sanId && !string.IsNullOrWhiteSpace(x.KhungGio) && x.GiaTien.HasValue)
+                .Select(x => new
+                {
+                    x.KhungGio,
+                    GiaTien = x.GiaTien
+                })
+                .ToListAsync();
+
+            var priceByHour = new Dictionary<int, decimal>();
+            foreach (var row in pricingRows)
+            {
+                if (!TryParseKhungGioHours(row.KhungGio, out var hours))
+                {
+                    continue;
+                }
+
+                foreach (var hour in hours)
+                {
+                    if (!priceByHour.ContainsKey(hour))
+                    {
+                        priceByHour[hour] = row.GiaTien!.Value;
+                    }
+                }
+            }
+
+            var defaultPricePerHour = await _context.SanPickleball
+                .AsNoTracking()
+                .Where(x => x.SanID == sanId)
+                .Select(x => x.GiaCoBan ?? 0)
                 .FirstOrDefaultAsync();
 
-            return Json(new { success = true, data = new { slots = allSlots, pricePerHour = giaTien } });
+            return Json(new
+            {
+                success = true,
+                data = new
+                {
+                    slots = allSlots,
+                    defaultPricePerHour,
+                    priceByHour
+                }
+            });
         }
 
         private bool HasManagerAccess()
         {
+            var userId = HttpContext.Session.GetInt32("UserID");
             var role = HttpContext.Session.GetString("VaiTro");
-            if (string.IsNullOrWhiteSpace(role)) return true;
+            if (!userId.HasValue || string.IsNullOrWhiteSpace(role)) return false;
             return role.Equals("Manager", StringComparison.OrdinalIgnoreCase) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
         }
 
@@ -529,6 +601,24 @@ namespace Pickleball_Smash.Controllers
         {
             var value = status?.Trim() ?? string.Empty;
             return string.IsNullOrWhiteSpace(value) ? "-" : value;
+        }
+
+        private static bool TryParseKhungGioHours(string? khungGio, out List<int> hours)
+        {
+            hours = new List<int>();
+            if (string.IsNullOrWhiteSpace(khungGio)) return false;
+
+            var parsed = khungGio
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(part => int.TryParse(part, out var hour) ? hour : -1)
+                .Where(hour => hour >= 0)
+                .Distinct()
+                .OrderBy(hour => hour)
+                .ToList();
+
+            if (!parsed.Any()) return false;
+            hours = parsed;
+            return true;
         }
     }
 }

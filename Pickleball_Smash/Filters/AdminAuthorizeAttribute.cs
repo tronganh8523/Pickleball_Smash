@@ -17,10 +17,9 @@ namespace Pickleball_Smash.Filters
                 base.OnActionExecuting(context);
                 return;
             }
-
-            var returnUrl = (httpContext.Request.Path + httpContext.Request.QueryString).ToString();
-            var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
-            context.Result = new RedirectResult($"/wp-admin?returnUrl={encodedReturnUrl}");
+            
+            // Hide restricted admin routes by returning 404 for unauthenticated/unauthorized access.
+            context.Result = new NotFoundResult();
         }
     }
 }

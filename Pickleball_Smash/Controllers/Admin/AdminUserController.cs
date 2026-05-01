@@ -104,9 +104,8 @@ namespace Pickleball_Smash.Controllers
             if (!isOldPasswordCorrect)
                 return BadRequest(new { success = false, message = "Mật khẩu cũ không chính xác." });
 
-            user.MatKhau = (!string.IsNullOrWhiteSpace(user.MatKhau) && user.MatKhau.StartsWith("$2", StringComparison.Ordinal))
-                ? BCrypt.Net.BCrypt.HashPassword(request.NewPassword)
-                : request.NewPassword;
+            // Always store password as BCrypt hash.
+            user.MatKhau = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             await _context.SaveChangesAsync();
 
             return Ok(new { success = true, message = "Đổi mật khẩu thành công." });

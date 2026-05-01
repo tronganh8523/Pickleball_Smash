@@ -22,7 +22,7 @@ namespace Pickleball_Smash.Controllers
 
         public async Task<IActionResult> Dashboard(string? tenSan, string? loaiSan, string? trangThai)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             tenSan = string.IsNullOrWhiteSpace(tenSan) ? null : tenSan.Trim();
             loaiSan = string.IsNullOrWhiteSpace(loaiSan) ? null : loaiSan.Trim();
@@ -141,7 +141,7 @@ namespace Pickleball_Smash.Controllers
 
         public async Task<IActionResult> Profile()
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return RedirectToAction("Index", "Home");
@@ -156,7 +156,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateMyProfileRequest request)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
@@ -190,7 +190,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest request)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized(new { success = false, message = "Vui lòng đăng nhập." });
@@ -220,10 +220,8 @@ namespace Pickleball_Smash.Controllers
             if (!isOldPasswordCorrect)
                 return BadRequest(new { success = false, message = "Mật khẩu cũ không chính xác." });
 
-            // Keep storage style consistent with existing value.
-            user.MatKhau = (!string.IsNullOrWhiteSpace(user.MatKhau) && user.MatKhau.StartsWith("$2"))
-                ? BCrypt.Net.BCrypt.HashPassword(request.NewPassword)
-                : request.NewPassword;
+            // Always store password as BCrypt hash.
+            user.MatKhau = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
 
             await _context.SaveChangesAsync();
             return Ok(new { success = true, message = "Đổi mật khẩu thành công." });
@@ -232,7 +230,7 @@ namespace Pickleball_Smash.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateBooking([FromBody] ManagerCreateBookingRequest request)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             if (request == null) return BadRequest(new { success = false, message = "Dữ liệu đặt sân không hợp lệ." });
 
@@ -408,7 +406,7 @@ namespace Pickleball_Smash.Controllers
         [HttpGet]
         public async Task<IActionResult> GetCourtBookingsForDay(int sanId, string? ngayChoi)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
             if (!DateOnly.TryParse(ngayChoi, out var date)) return BadRequest(new { success = false, message = "Ngày không hợp lệ." });
 
             var trangThaiDonDangHoatDong = new[] { "Chờ xác nhận", "Đã xác nhận", "Đang chơi", "Đã đặt" };
@@ -472,7 +470,7 @@ namespace Pickleball_Smash.Controllers
         [HttpGet]
         public async Task<IActionResult> LookupCustomerByPhone(string? soDienThoai)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             var phone = soDienThoai?.Trim();
             if (string.IsNullOrWhiteSpace(phone)) return Ok(new { found = false, hoTen = string.Empty });
@@ -543,8 +541,9 @@ namespace Pickleball_Smash.Controllers
 
         private bool HasManagerAccess()
         {
+            var userId = HttpContext.Session.GetInt32("UserID");
             var role = HttpContext.Session.GetString("VaiTro");
-            if (string.IsNullOrWhiteSpace(role)) return true;
+            if (!userId.HasValue || string.IsNullOrWhiteSpace(role)) return false;
             return role.Equals("Manager", StringComparison.OrdinalIgnoreCase) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
         }
 

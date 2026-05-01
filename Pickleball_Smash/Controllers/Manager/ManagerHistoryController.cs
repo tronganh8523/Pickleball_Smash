@@ -17,7 +17,7 @@ namespace Pickleball_Smash.Controllers
 
         public async Task<IActionResult> History(int? sanId, string? khungGio, string? ngayChoiTu, string? ngayChoiDen, string? trangThai, string? sapXep, string? tuKhoa)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             var historyStatuses = new[] { "Hoàn thành", "Đã hủy", "Thất bại" };
 
@@ -109,7 +109,7 @@ namespace Pickleball_Smash.Controllers
         [HttpGet]
         public async Task<IActionResult> HistoryDetail(int id)
         {
-            if (!HasManagerAccess()) return Forbid();
+            if (!HasManagerAccess()) return NotFound();
 
             var donDat = await _context.DonDatSan
                 .AsNoTracking()
@@ -159,8 +159,9 @@ namespace Pickleball_Smash.Controllers
 
         private bool HasManagerAccess()
         {
+            var userId = HttpContext.Session.GetInt32("UserID");
             var role = HttpContext.Session.GetString("VaiTro");
-            if (string.IsNullOrWhiteSpace(role)) return true;
+            if (!userId.HasValue || string.IsNullOrWhiteSpace(role)) return false;
             return role.Equals("Manager", StringComparison.OrdinalIgnoreCase) || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
         }
 

@@ -394,27 +394,35 @@
             });
 
             // Edit booking handlers
-            let currentPricePerHour = 0;
+            let currentDefaultPricePerHour = 0;
+            let currentPriceByHour = {};
             let currentEditingBookingId = 0;
+            const getEditSanIdElement = () => document.getElementById('editSanID');
+            const getEditNgayChoiElement = () => document.getElementById('editNgayChoi');
+            const getSelectedHoursContainerElement = () => document.getElementById('selectedHoursContainer');
+            const getEditTongTienElement = () => document.getElementById('editTongTien');
 
             function renderTimeSlots(selectedHours, availableSlots = null) {
-                const selectedHoursContainer = document.getElementById('selectedHoursContainer');
-                if (!selectedHoursContainer) {
+                const selectedHoursContainerElement = getSelectedHoursContainerElement();
+                if (!selectedHoursContainerElement) {
                     console.error("selectedHoursContainer not found");
                     return;
                 }
                 
-                selectedHoursContainer.innerHTML = '';
+                selectedHoursContainerElement.innerHTML = '';
+                const slotsByHour = Array.isArray(availableSlots)
+                    ? new Map(availableSlots.map(slot => [Number(slot.hour), slot]))
+                    : null;
                 
                 // Lọc selectedHours để loại bỏ khung giờ disabled
                 const validSelectedHours = selectedHours.filter(hour => {
-                    const slotData = availableSlots ? availableSlots.find(s => s.hour === hour) : null;
+                    const slotData = slotsByHour ? slotsByHour.get(Number(hour)) : null;
                     return !slotData || !slotData.disabled;
                 });
                 
                 for (let hour = 5; hour <= 23; hour++) {
                     const slot = document.createElement('div');
-                    const slotData = availableSlots ? availableSlots.find(s => s.hour === hour) : null;
+                    const slotData = slotsByHour ? slotsByHour.get(hour) : null;
                     const isDisabled = slotData && slotData.disabled;
                     const label = slotData ? slotData.label : 'Có sẵn';
                     
@@ -444,7 +452,7 @@
                         slot.style.cursor = 'not-allowed';
                     }
                     
-                    selectedHoursContainer.appendChild(slot);
+                    selectedHoursContainerElement.appendChild(slot);
                 }
             }
 
@@ -457,11 +465,13 @@
                         + '&ngayChoi=' + ngayChoi
                         + '&excludeBookingId=' + (excludeBookingId || 0);
                     const response = await fetch(url);
+                    if (!response.ok) return null;
                     const result = await response.json();
                     if (!result.success) return null;
                     const payload = result.data || null;
                     if (!payload) return null;
-                    currentPricePerHour = Number(payload.pricePerHour || 0);
+                    currentDefaultPricePerHour = Number(payload.defaultPricePerHour || 0);
+                    currentPriceByHour = payload.priceByHour || {};
                     return payload.slots || null;
                 } catch (error) {
                     console.error("Error loading available slots:", error);
@@ -470,22 +480,46 @@
             }
 
             function calculateTongTien() {
-                const editSanID = document.getElementById('editSanID');
-                const editTongTien = document.getElementById('editTongTien');
-                const selectedHoursContainer = document.getElementById('selectedHoursContainer');
+                const editSanIdElement = getEditSanIdElement();
+                const editTongTienElement = getEditTongTienElement();
+                const selectedHoursContainerElement = getSelectedHoursContainerElement();
+                if (!editSanIdElement || !editTongTienElement || !selectedHoursContainerElement) return;
                 
-                if (!editSanID || !editTongTien || !selectedHoursContainer) return;
-                
-                const sanId = Number(editSanID.value);
-                const selectedHours = Array.from(selectedHoursContainer.querySelectorAll('.time-slot.selected')).map(btn => Number(btn.dataset.hour));
-                const hours = selectedHours.length;
-                
-                const tongTien = hours * (currentPricePerHour || 0);
-                editTongTien.textContent = tongTien.toLocaleString('vi-VN') + ' đ';
+                const selectedHours = Array.from(selectedHoursContainerElement.querySelectorAll('.time-slot.selected')).map(btn => Number(btn.dataset.hour));
+                const tongTien = selectedHours.reduce((sum, hour) => {
+                    const key = String(hour);
+                    const unitPrice = Number(currentPriceByHour[key] ?? currentDefaultPricePerHour ?? 0);
+                    return sum + unitPrice;
+                }, 0);
+                editTongTienElement.textContent = tongTien.toLocaleString('vi-VN') + ' đ';
             }
 
-            // Add event listener to update total when sanID changes
-            document.getElementById('editSanID')?.addEventListener('change', calculateTongTien);
+            async function reloadAvailableSlotsForEdit(resetSelection) {
+                const editSanIdElement = getEditSanIdElement();
+                const editNgayChoiElement = getEditNgayChoiElement();
+                const selectedHoursContainerElement = getSelectedHoursContainerElement();
+                const editTongTienElement = getEditTongTienElement();
+                const sanId = Number(editSanIdElement?.value || 0);
+                const ngayChoi = editNgayChoiElement?.value || '';
+                if (!sanId || !ngayChoi || !selectedHoursContainerElement) return;
+
+                const availableSlots = await loadAvailableSlots(sanId, ngayChoi, currentEditingBookingId);
+                if (!Array.isArray(availableSlots)) {
+                    selectedHoursContainerElement.innerHTML = '<p class="text-danger mb-0">Không tải được trạng thái khung giờ. Vui lòng thử lại.</p>';
+                    if (editTongTienElement) {
+                        editTongTienElement.textContent = '0 đ';
+                    }
+                    return;
+                }
+
+                const selectedHours = resetSelection
+                    ? []
+                    : Array.from(selectedHoursContainerElement.querySelectorAll('.time-slot.selected'))
+                        .map(slot => Number(slot.dataset.hour));
+
+                renderTimeSlots(selectedHours, availableSlots);
+                calculateTongTien();
+            }
 
             document.querySelectorAll(".js-edit-booking").forEach(button => {
                 button.addEventListener("click", async function () {
@@ -523,13 +557,25 @@
                         document.getElementById('editTenKhach').value = data.tenKhachHang;
                         document.getElementById('editSoDienThoai').value = data.soDienThoai;
                         document.getElementById('editNgayChoi').value = data.ngayChoi;
-                        currentPricePerHour = Number(data.pricePerHour || 0);
+                        currentDefaultPricePerHour = Number(data.pricePerHour || 0);
+                        currentPriceByHour = {};
                         currentEditingBookingId = Number(data.donDatSanID || 0);
 
                         // Load available time slots and render
                         const availableSlots = await loadAvailableSlots(data.sanID, data.ngayChoi, currentEditingBookingId);
-                        renderTimeSlots(data.selectedHours, availableSlots);
-                        calculateTongTien();
+                        if (!Array.isArray(availableSlots)) {
+                            const selectedHoursContainerElement = getSelectedHoursContainerElement();
+                            const editTongTienElement = getEditTongTienElement();
+                            if (selectedHoursContainerElement) {
+                                selectedHoursContainerElement.innerHTML = '<p class="text-danger mb-0">Không tải được trạng thái khung giờ. Vui lòng thử lại.</p>';
+                            }
+                            if (editTongTienElement) {
+                                editTongTienElement.textContent = '0 đ';
+                            }
+                        } else {
+                            renderTimeSlots(data.selectedHours, availableSlots);
+                            calculateTongTien();
+                        }
 
                         const editBookingModal = document.getElementById('editBookingModal');
                         if (editBookingModal) {
@@ -542,26 +588,18 @@
             });
 
             // Add event listeners to reload available slots when changing san or ngayChoi
-            document.getElementById('editSanID')?.addEventListener('change', async function () {
-                const sanId = Number(this.value || 0);
-                const ngayChoi = document.getElementById('editNgayChoi')?.value;
-                if (sanId && ngayChoi) {
-                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi, currentEditingBookingId);
-                    const selectedHours = Array.from(document.getElementById('selectedHoursContainer')?.querySelectorAll('.time-slot.selected') || [])
-                        .map(slot => Number(slot.dataset.hour));
-                    renderTimeSlots(selectedHours, availableSlots);
-                    calculateTongTien();
-                }
-            });
+            document.addEventListener('change', async function (e) {
+                const target = e.target;
+                if (!(target instanceof HTMLElement)) return;
 
-            document.getElementById('editNgayChoi')?.addEventListener('change', async function () {
-                const sanId = Number(document.getElementById('editSanID')?.value || 0);
-                const ngayChoi = this.value;
-                if (sanId && ngayChoi) {
-                    const availableSlots = await loadAvailableSlots(sanId, ngayChoi, currentEditingBookingId);
-                    // Đổi ngày => reset lựa chọn khung giờ để tránh “khóa” theo lựa chọn cũ
-                    renderTimeSlots([], availableSlots);
-                    calculateTongTien();
+                if (target.id === 'editSanID') {
+                    await reloadAvailableSlotsForEdit(false);
+                    return;
+                }
+
+                if (target.id === 'editNgayChoi') {
+                    // Đổi ngày => luôn reset lại khung giờ đã chọn để bám đúng trạng thái ngày mới.
+                    await reloadAvailableSlotsForEdit(true);
                 }
             });
 
