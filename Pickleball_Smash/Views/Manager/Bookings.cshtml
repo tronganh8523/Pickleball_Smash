@@ -180,15 +180,49 @@
                 {
                     @foreach (var item in Model)
                     {
-                        <tr>
-                            <td>#@item.DonDatSanID</td>
+                        // Razor tự động hiểu đây là code C# vì nằm ngay trong @foreach
+                        var daThanhToan = item.ThanhToans?.Sum(t => t.SoTien) ?? 0;
+                        var tongTien = item.TongTien ?? 0;
+                        var conLai = tongTien - daThanhToan;
+                        var laDatCoc = daThanhToan > 0 && daThanhToan < tongTien;
+
+                        <!-- Bôi đỏ dòng nếu khách hàng gửi yêu cầu hủy -->
+                        <tr class="@(item.YeuCauHuy ? "table-danger" : (item.YeuCauSua ? "table-warning" : ""))">
+                            <td>
+                                #@item.DonDatSanID
+                                @if (item.YeuCauHuy)
+                                {
+                                    <span class="badge bg-danger mt-1">Khách xin hủy</span>
+                                }
+                                @if (item.YeuCauSua)
+                                {
+                                    <span class="badge bg-warning text-dark mt-1">Khách xin sửa</span>
+                                    <div style="font-size: 0.8rem; color: #dc3545; max-width: 180px; margin-top: 5px;">@item.NoiDungSua</div>
+                                }
+                            </td>
                             <td>@(item.NguoiDung?.HoTen ?? item.NguoiDung?.TenDangNhap ?? "Khách lẻ")</td>
                             <td>@(item.SanPickleball?.TenSan ?? "N/A")</td>
                             <td>
                                 @Pickleball_Smash.Controllers.ManagerDonDatSanController.FormatBookingTimeRange(item)
                             </td>
                             <td>@(item.NgayChoi?.ToString("dd/MM/yyyy") ?? "-")</td>
-                            <td>@((item.TongTien ?? 0).ToString("N0")) đ</td>
+                
+                            <!-- CỘT HIỂN THỊ TIỀN -->
+                            <td>
+                                @if (laDatCoc)
+                                {
+                                    <div style="line-height: 1.4;">
+                                        <span class="badge bg-warning text-dark mb-1" style="font-size: 0.9em;">Khách cọc: @daThanhToan.ToString("N0") đ</span><br />
+                                        <small class="text-muted">Tổng: @tongTien.ToString("N0") đ</small>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span style="font-weight: bold;">@tongTien.ToString("N0") đ</span>
+                                }
+                            </td>
+                
+                            <!-- CỘT TRẠNG THÁI -->
                             <td>
                                 @{
                                     var status = item.TrangThaiDon?.Trim() ?? "-";
@@ -198,57 +232,43 @@
                                         : status.Equals("Đã đặt", StringComparison.OrdinalIgnoreCase) ? "bg-primary"
                                         : status.Equals("Hoàn thành", StringComparison.OrdinalIgnoreCase) ? "bg-secondary"
                                         : status.Equals("Đã hủy", StringComparison.OrdinalIgnoreCase) ? "bg-danger"
+                                        : status.Equals("Đã hoàn tiền", StringComparison.OrdinalIgnoreCase) ? "bg-secondary"
                                         : status.Equals("Thất bại", StringComparison.OrdinalIgnoreCase) ? "bg-dark"
                                         : "bg-light text-dark";
                                 }
                                 <span class="badge @statusClass">@status</span>
                             </td>
                             <td>@(item.NgayTao?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                
+                            <!-- CỘT CHỨA NÚT HÀNH ĐỘNG -->
                             <td>
                                 @{
                                     var actionStatus = item.TrangThaiDon?.Trim() ?? string.Empty;
                                     var isWaiting = actionStatus.Equals("Chờ xác nhận", StringComparison.OrdinalIgnoreCase);
-                                    var isReadyToCheckout = actionStatus.Equals("Đã xác nhận", StringComparison.OrdinalIgnoreCase)
-                                        || actionStatus.Equals("Đang chơi", StringComparison.OrdinalIgnoreCase)
-                                        || actionStatus.Equals("Đã đặt", StringComparison.OrdinalIgnoreCase);
+                                    var isConfirmed = actionStatus.Equals("Đã xác nhận", StringComparison.OrdinalIgnoreCase);
+                                    var isPlaying = actionStatus.Equals("Đang chơi", StringComparison.OrdinalIgnoreCase);
                                 }
 
                                 <div class="d-flex flex-wrap gap-2">
                                     @if (isWaiting)
                                     {
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-warning js-edit-booking"
-                                                data-booking-id="@item.DonDatSanID"
-                                                data-san-id="@(item.SanID ?? 0)">
-                                            Sửa
-                                        </button>
-
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-success js-confirm-booking"
-                                                data-booking-id="@item.DonDatSanID"
-                                                data-san-id="@(item.SanID ?? 0)">
-                                            Xác nhận
-                                        </button>
-
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger js-cancel-booking"
-                                                data-booking-id="@item.DonDatSanID"
-                                                data-san-id="@(item.SanID ?? 0)">
-                                            Hủy
-                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-warning js-edit-booking" data-booking-id="@item.DonDatSanID" data-san-id="@(item.SanID ?? 0)">Sửa</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success js-confirm-booking" data-booking-id="@item.DonDatSanID" data-san-id="@(item.SanID ?? 0)">Xác nhận</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger js-cancel-booking" data-booking-id="@item.DonDatSanID" data-san-id="@(item.SanID ?? 0)">Hủy</button>
                                     }
-
-                                    @if (isReadyToCheckout)
+                                    else if (isConfirmed)
                                     {
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-primary js-checkout-booking"
-                                                data-booking-id="@item.DonDatSanID"
-                                                data-san-id="@(item.SanID ?? 0)">
-                                            Check-out
-                                        </button>
+                                        <button type="button" class="btn btn-sm btn-primary" onclick="openCheckInModal(@item.DonDatSanID, @(item.SanID ?? 0), @conLai, @daThanhToan, @tongTien)">Check-in</button>
+                                        @if (item.YeuCauHuy)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-danger js-cancel-booking" data-booking-id="@item.DonDatSanID" data-san-id="@(item.SanID ?? 0)">Hủy & Hoàn tiền</button>
+                                        }
                                     }
-
-                                    @if (!isWaiting && !isReadyToCheckout)
+                                    else if (isPlaying)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary js-checkout-booking" data-booking-id="@item.DonDatSanID" data-san-id="@(item.SanID ?? 0)">Check-out</button>
+                                    }
+                                    else
                                     {
                                         <span class="text-muted">-</span>
                                     }
@@ -379,17 +399,12 @@
                     const bookingId = Number(this.dataset.bookingId || 0);
                     const sanId = Number(this.dataset.sanId || 0);
 
-                    if (!bookingId || !sanId) {
-                        await showMessage("error", "Có lỗi xảy ra", "Không tìm thấy dữ liệu đơn để hủy.");
-                        return;
-                    }
+                    if (!bookingId || !sanId) return;
 
-                    const ok = await confirmAction("Bạn chắc chắn muốn hủy đơn đặt sân này?");
-                    if (!ok) {
-                        return;
-                    }
+                    const ok = await confirmAction("Bạn có chắc chắn muốn hủy đơn này? Hệ thống sẽ tự động kiểm tra mốc 60 phút để quyết định Hoàn tiền hay Mất tiền.");
+                    if (!ok) return;
 
-                    await submitBookingAction(cancelBookingUrl, { bookingID: bookingId, sanID: sanId }, this, "Đã hủy đơn đặt sân.");
+                    await submitBookingAction(cancelBookingUrl, { bookingID: bookingId, sanID: sanId }, this, "Xử lý hủy đơn hoàn tất!");
                 });
             });
 
@@ -397,10 +412,67 @@
             let currentDefaultPricePerHour = 0;
             let currentPriceByHour = {};
             let currentEditingBookingId = 0;
+            let currentCiBookingId = 0;
+            let currentCiSanId = 0;
             const getEditSanIdElement = () => document.getElementById('editSanID');
             const getEditNgayChoiElement = () => document.getElementById('editNgayChoi');
             const getSelectedHoursContainerElement = () => document.getElementById('selectedHoursContainer');
             const getEditTongTienElement = () => document.getElementById('editTongTien');
+
+            window.openCheckInModal = function(bookingId, sanId, conLai, daThanhToan, tongTien) {
+            currentCiBookingId = bookingId;
+            currentCiSanId = sanId;
+
+            if (conLai > 0) {
+                document.getElementById('checkInDepositInfo').style.display = 'block';
+                document.getElementById('checkInFullInfo').style.display = 'none';
+                document.getElementById('ciTongTien').innerText = tongTien.toLocaleString('vi-VN') + ' đ';
+                document.getElementById('ciDaCoc').innerText = daThanhToan.toLocaleString('vi-VN') + ' đ';
+                document.getElementById('ciConLai').innerText = conLai.toLocaleString('vi-VN') + ' đ';
+                document.getElementById('btnConfirmCheckIn').innerText = 'Đã thu tiền & Nhận sân';
+            } else if (conLai < 0) {
+            document.getElementById('checkInDepositInfo').style.display = 'block';
+            document.getElementById('checkInFullInfo').style.display = 'none';
+            document.getElementById('ciTongTien').innerText = tongTien.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('ciDaCoc').innerText = daThanhToan.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('ciConLai').innerHTML = `<span style="color: #28a745;">Cần hoàn trả khách: ${Math.abs(conLai).toLocaleString('vi-VN')} đ</span>`;
+            document.getElementById('btnConfirmCheckIn').innerText = 'Đã hoàn tiền & Nhận sân';
+        } else {
+                document.getElementById('checkInDepositInfo').style.display = 'none';
+                document.getElementById('checkInFullInfo').style.display = 'block';
+                document.getElementById('btnConfirmCheckIn').innerText = 'Xác nhận Nhận sân';
+            }
+
+            var checkInModal = new bootstrap.Modal(document.getElementById('checkInModal'));
+            checkInModal.show();
+        };
+
+        window.confirmCheckIn = function() {
+            const btn = document.getElementById('btnConfirmCheckIn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Đang xử lý...";
+
+            fetch('@Url.Action("CheckInCourt", "ManagerDonDatSan")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ BookingID: currentCiBookingId, SanID: currentCiSanId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire('Thành công!', data.message, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Lỗi!', data.message || "Không thể Check-in", 'error');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            }).catch(err => {
+                Swal.fire('Lỗi!', 'Lỗi kết nối đến máy chủ.', 'error');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+        };
 
             function renderTimeSlots(selectedHours, availableSlots = null) {
                 const selectedHoursContainerElement = getSelectedHoursContainerElement();
@@ -703,7 +775,39 @@
                 }
             }, false);
         })();
+                
     </script>
+
+    <!-- Màn hình Modal Check-in -->
+    <div class="modal fade" id="checkInModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Check-in Nhận Sân</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <!-- Nội dung khi khách mới Cọc 50% -->
+                    <div id="checkInDepositInfo" style="display: none;">
+                        <h4 class="text-danger mb-3">Khách mới thanh toán cọc!</h4>
+                        <p>Tổng tiền đơn: <strong id="ciTongTien">0 đ</strong></p>
+                        <p>Khách đã đặt cọc: <strong id="ciDaCoc" class="text-warning">0 đ</strong></p>
+                        <hr />
+                        <h5 class="text-primary mt-3">Tiền mặt cần thu thêm: <br><strong id="ciConLai" style="font-size: 1.8rem;">0 đ</strong></h5>
+                    </div>
+                    <!-- Nội dung khi khách đã trả 100% -->
+                    <div id="checkInFullInfo" style="display: none;">
+                        <h4 class="text-success mb-3"><i class="fas fa-check-circle"></i> Khách đã thanh toán 100%!</h4>
+                        <p>Không cần thu thêm tiền. Bấm xác nhận để đổi trạng thái sang Đang chơi.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmCheckIn" onclick="confirmCheckIn()">Xác nhận</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Edit Booking Modal -->
     <div class="modal fade" id="editBookingModal" tabindex="-1">

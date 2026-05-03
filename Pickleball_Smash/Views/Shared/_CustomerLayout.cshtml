@@ -113,7 +113,7 @@
 
     <div id="bookingModal" class="auth-modal-overlay">
         <div class="auth-modal modal-xl">
-            <button class="auth-close" onclick="closeModal('bookingModal')">×</button>
+            <button class="auth-close" onclick="closeBookingModal()">×</button>
             <h2 class="auth-title" style="text-align: left; margin-bottom: 25px;">Đặt sân</h2>
 
             <div class="booking-layout">
@@ -160,11 +160,37 @@
 
                     <div class="summary-total"><span>Thành Tiền:</span> <span id="sumTotalFinal" style="color: #dc3545;">0đ</span></div>
                     <button class="btn-primary-blue" onclick="submitBooking()">Đặt Sân</button>
+                    <button type="button" class="btn-outline" id="btnBackToHistory" style="display:none; width:100%; margin-top:10px;" onclick="closeBookingModal()">Quay lại lịch sử</button>
+                    <div style="text-align: center; margin-top: 12px; font-size: 0.85rem; color: #dc3545; font-style: italic;">
+                        * Lưu ý: Đơn hàng sẽ không được hoàn tiền nếu hủy cách giờ chơi ít hơn 60 phút
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
+    <!-- MÀN HÌNH CHỌN HÌNH THỨC THANH TOÁN -->
+<div id="paymentChoiceModal" class="auth-modal-overlay">
+    <div class="auth-modal modal-md" style="text-align: center;">
+        <!-- Dùng chung hàm closePaymentModal để nếu tắt ngang thì vẫn hủy đơn nháp -->
+        <button class="auth-close" onclick="closePaymentModal()">×</button>
+        <h2 class="auth-title">Chọn hình thức thanh toán</h2>
+        <p style="color: #666; margin-bottom: 25px;">Vui lòng chọn mức thanh toán cho đơn đặt sân của bạn.</p>
+        
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <div style="flex: 1; border: 2px solid var(--primary-green); border-radius: 10px; padding: 20px; cursor: pointer; transition: 0.3s; background: #f0fdf4;" onclick="proceedToPayment('Coc50')">
+                <h3 style="color: var(--primary-green); margin-top: 0; font-size: 1.3rem;">Đặt Cọc 50%</h3>
+                <p style="font-size: 1.3rem; font-weight: bold; color: #dc3545; margin: 10px 0;" id="choiceDepositAmount">0đ</p>
+                <small style="color: #666;">Thanh toán phần còn lại tại sân</small>
+            </div>
+            
+            <div style="flex: 1; border: 2px solid #5c7cfa; border-radius: 10px; padding: 20px; cursor: pointer; transition: 0.3s; background: #f8f9fa;" onclick="proceedToPayment('Full')">
+                <h3 style="color: #5c7cfa; margin-top: 0; font-size: 1.3rem;">Thanh Toán 100%</h3>
+                <p style="font-size: 1.3rem; font-weight: bold; color: #dc3545; margin: 10px 0;" id="choiceFullAmount">0đ</p>
+                <small style="color: #666;">Hoàn tất thanh toán ngay</small>
+            </div>
+        </div>
+    </div>
+</div>
     <div id="paymentModal" class="auth-modal-overlay">
         <div class="auth-modal modal-md">
             <button class="auth-close" onclick="closePaymentModal()">×</button>
@@ -797,6 +823,23 @@
 
         <div id="courtReviewsList" class="review-list-container">
             </div>
+    </div>
+</div>
+<!-- Modal Yêu Cầu Hủy Đơn -->
+<div id="cancelRequestModal" class="auth-modal-overlay">
+    <div class="auth-modal modal-md" style="text-align: center;">
+        <button class="auth-close" onclick="closeModal('cancelRequestModal'); openModal('historyModal')">×</button>
+        <h2 class="auth-title" id="crTitle">Xác nhận hủy đơn</h2>
+        <p style="color: #666; margin-bottom: 25px;" id="crMessage">Bạn có chắc chắn muốn gửi yêu cầu hủy đơn đặt sân này đến nhân viên không?</p>
+        
+        <div style="display: flex; gap: 15px; justify-content: center;" id="crBtnGroupNormal">
+            <button class="btn-outline" style="flex: 1;" onclick="closeModal('cancelRequestModal'); openModal('historyModal')">Từ chối</button>
+            <button class="btn-primary-blue" style="flex: 1; background: #dc3545; border:none;" onclick="submitCancelRequest(true)">Đồng ý</button>
+        </div>
+
+        <div style="display: none; gap: 15px; justify-content: center;" id="crBtnGroupRevoke">
+            <button class="btn-outline" style="flex: 1;" onclick="submitCancelRequest(false)">Thu hồi yêu cầu hủy</button>
+        </div>
     </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>

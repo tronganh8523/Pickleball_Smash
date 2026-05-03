@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pickleball_Smash.Data;
 
@@ -11,9 +12,11 @@ using Pickleball_Smash.Data;
 namespace Pickleball_Smash.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260503090433_AddYeuCauHuy")]
+    partial class AddYeuCauHuy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -109,9 +112,6 @@ namespace Pickleball_Smash.Migrations
                     b.Property<int?>("NguoiDungID")
                         .HasColumnType("int");
 
-                    b.Property<string>("NoiDungSua")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int?>("SanID")
                         .HasColumnType("int");
 
@@ -132,9 +132,6 @@ namespace Pickleball_Smash.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("YeuCauHuy")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("YeuCauSua")
                         .HasColumnType("bit");
 
                     b.HasKey("DonDatSanID");

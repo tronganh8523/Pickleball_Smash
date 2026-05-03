@@ -1,4 +1,5 @@
 ﻿// ================= BIẾN TOÀN CỤC =================
+let currentPaymentType = 'Full';
 let currentBookingIds = [];
 let finalPrice = 0;
 let selectedSlots = [];
@@ -8,6 +9,8 @@ let appliedVoucherCode = '';
 let appliedDiscountAmount = 0;
 let userHistoryData = [];
 let currentCourtPrices = {};
+let isEditMode = false;
+let editTargetBookingId = 0;
 
 function openModal(id) {
     document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
@@ -326,12 +329,34 @@ function submitBooking() {
         NgayDat: document.getElementById('bkDate').value,
         SelectedHours: selectedSlots,
         GhiChu: document.getElementById('bkNote').value,
-        TongTien: finalPrice
+        TongTien: finalPrice,
+        BookingID: typeof editTargetBookingId !== 'undefined' ? editTargetBookingId : 0
     };
 
+    // ================= CHẾ ĐỘ SỬA ĐƠN =================
+    if (isEditMode) {
+        fetch('/San/RequestEditBooking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookingData)
+        })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                if (data.success) {
+                    closeBookingModal(); // Đóng và reset form
+                    loadHistory();       // Tự động load lại bảng lịch sử
+                }
+            })
+            .catch(err => alert('Lỗi kết nối máy chủ!'));
+
+        return; // DỪNG HÀM TẠI ĐÂY, KHÔNG CHẠY PHẦN ĐẶT MỚI BÊN DƯỚI
+    }
+
+    // ================= CHẾ ĐỘ ĐẶT SÂN MỚI =================
     if (!window.isLoggedIn) {
         sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
-        closeModal('bookingModal');
+        closeBookingModal();
         if (typeof openAuthModal === 'function') openAuthModal('login');
         return;
     }
@@ -345,14 +370,26 @@ function submitBooking() {
         .then(data => {
             if (data.success) {
                 currentBookingIds = data.bookingIds;
-                // Không xóa appliedVoucherCode ở đây nữa - sẽ xóa sau khi thanh toán thành công
-                closeModal('bookingModal');
-                updatePaymentModal();
-                openModal('paymentModal');
+                closeBookingModal();
+
+                // Tính tiền và đổ vào popup chọn hình thức thanh toán
+                const finalAmount = Math.max(0, finalPrice - (appliedDiscountAmount || 0));
+                document.getElementById('choiceFullAmount').innerText = finalAmount.toLocaleString('vi-VN') + 'đ';
+                document.getElementById('choiceDepositAmount').innerText = (finalAmount / 2).toLocaleString('vi-VN') + 'đ';
+
+                openModal('paymentChoiceModal');
             } else {
                 alert(data.message);
             }
-        });
+        })
+        .catch(err => alert('Lỗi kết nối máy chủ!'));
+}
+
+function proceedToPayment(type) {
+    currentPaymentType = type; // Lưu lại lựa chọn ('Coc50' hoặc 'Full')
+    closeModal('paymentChoiceModal');
+    updatePaymentModal();
+    openModal('paymentModal'); // Chuyển sang màn hình quét QR
 }
 
 function updatePaymentModal() {
@@ -360,6 +397,7 @@ function updatePaymentModal() {
     const voucherCodeDisplay = document.getElementById('paymentVoucherCode');
     const voucherDiscountDisplay = document.getElementById('paymentVoucherDiscount');
     const finalAmountDisplay = document.getElementById('paymentFinalAmount');
+    const amountLabel = finalAmountDisplay.previousElementSibling; // Thẻ <p> chứa chữ "Số tiền cần chuyển:"
 
     if (appliedVoucherCode && appliedDiscountAmount > 0) {
         voucherInfo.style.display = 'block';
@@ -370,30 +408,35 @@ function updatePaymentModal() {
     }
 
     const finalAmount = Math.max(0, finalPrice - (appliedDiscountAmount || 0));
-    finalAmountDisplay.innerText = finalAmount.toLocaleString('vi-VN') + 'đ';
+
+    // Tùy chỉnh text và số tiền dựa trên lựa chọn
+    if (currentPaymentType === 'Coc50') {
+        amountLabel.innerText = "Số tiền cần chuyển (Cọc 50%):";
+        finalAmountDisplay.innerText = (finalAmount / 2).toLocaleString('vi-VN') + 'đ';
+    } else {
+        amountLabel.innerText = "Số tiền cần chuyển (Thanh toán 100%):";
+        finalAmountDisplay.innerText = finalAmount.toLocaleString('vi-VN') + 'đ';
+    }
 }
 
 // Thêm hàm này vào customer-booking.js
 async function closePaymentModal() {
     if (currentBookingIds.length > 0) {
         const confirmExit = confirm("Bạn chưa hoàn tất thanh toán! Tắt cửa sổ này sẽ hủy đơn đặt sân của bạn. Bạn có chắc chắn muốn thoát?");
-        if (!confirmExit) return; // Người dùng không muốn thoát
+        if (!confirmExit) return;
 
-        // Gọi API xóa đơn nháp
         await fetch('/San/CancelPendingBookings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(currentBookingIds)
         });
 
-        // Reset lại dữ liệu
         currentBookingIds = [];
         resetVoucherState();
-
-        // Load lại lưới giờ để trả lại sân cho người khác
         await fetchBookedSlots();
     }
     closeModal('paymentModal');
+    closeModal('paymentChoiceModal'); // Thêm dòng này
 }
 
 // ================= LOGIC THANH TOÁN & LỊCH SỬ =================
@@ -405,7 +448,8 @@ function confirmPayment() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             bookingIds: currentBookingIds,
-            voucherCode: appliedVoucherCode || null
+            voucherCode: appliedVoucherCode || null,
+            paymentType: currentPaymentType // Gửi lựa chọn lên C#
         })
     })
         .then(res => res.json())
@@ -456,10 +500,30 @@ function renderHistoryTable(dataToRender) {
         const originalIndex = userHistoryData.indexOf(item);
         let actionHtml = '';
 
-        if (['Đã thanh toán', 'Hoàn thành', 'Đã xác nhận'].includes(item.trangThai)) {
+        if (['Đã thanh toán', 'Hoàn thành', 'Đã xác nhận', 'Đang chơi'].includes(item.trangThai)) {
             actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto;" onclick="viewCustomerInvoice(${originalIndex})">
                              <i class="fas fa-file-invoice"></i> Hóa đơn
                            </button>`;
+        }
+
+        // --- THÊM NÚT HỦY HOẶC ĐANG YÊU CẦU HỦY ---
+        if (['Chờ xác nhận', 'Đã xác nhận'].includes(item.trangThai)) {
+            if (item.yeuCauHuy) {
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #6c757d; border: none;" onclick="openCancelRequestModal(${originalIndex}, true)">
+                                 <i class="fas fa-spinner fa-spin"></i> Đang chờ hủy
+                               </button>`;
+            } else {
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #dc3545; border: none;" onclick="openCancelRequestModal(${originalIndex}, false)">
+                                 <i class="fas fa-times"></i> Hủy
+                               </button>`;
+            }
+        }
+        if (['Chờ xác nhận', 'Đã xác nhận'].includes(item.trangThai)) {
+            if (item.yeuCauSua) {
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #fd7e14; border: none;"><i class="fas fa-spinner fa-spin"></i> Chờ duyệt sửa</button>`;
+            } else {
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #0d6efd; border: none;" onclick="openEditRequestModal(${originalIndex})"><i class="fas fa-edit"></i> Sửa</button>`;
+            }
         }
 
         if (item.trangThai === 'Hoàn thành') {
@@ -476,6 +540,14 @@ function renderHistoryTable(dataToRender) {
 
         if (!actionHtml) actionHtml = '-';
 
+        // Xử lý màu sắc hiển thị riêng cho các trạng thái đặc biệt
+        let statusHtml = `<span class="status-paid">${item.trangThai}</span>`;
+        if (item.trangThai === 'Đã hoàn tiền') {
+            statusHtml = `<span style="color: #28a745; font-weight: bold; background: #e6f4ea; padding: 4px 8px; border-radius: 4px;"></i> Đã hoàn tiền</span>`;
+        } else if (item.trangThai === 'Đã hủy') {
+            statusHtml = `<span style="color: #dc3545; font-weight: bold; background: #fde8e8; padding: 4px 8px; border-radius: 4px;">Đã hủy</span>`;
+        }
+
         tbody.innerHTML += `
             <tr>
                 <td>${item.maHoaDon}</td>
@@ -483,7 +555,7 @@ function renderHistoryTable(dataToRender) {
                 <td>${item.loaiSan}</td>
                 <td>${item.khungGio}</td>
                 <td>${item.tongTien.toLocaleString('vi-VN')}đ</td>
-                <td><span class="status-paid">${item.trangThai}</span></td>
+                <td>${statusHtml}</td>
                 <td style="text-align: center;">${actionHtml}</td>
             </tr>`;
     });
@@ -1077,4 +1149,65 @@ function renderReviewListHTML(reviews) {
             </div>
         `;
     });
+}
+
+// ================= LOGIC YÊU CẦU SỬA =================
+function openEditRequestModal(index) {
+    const item = userHistoryData[index];
+    if (!item) return;
+
+    // Bật cờ Edit Mode và lưu ID đơn cần sửa
+    isEditMode = true;
+    editTargetBookingId = item.donDatSanId;
+
+    // Đổ dữ liệu cũ vào Popup Đặt sân
+    const sanSelect = document.getElementById('bkSan');
+    if (sanSelect) sanSelect.value = item.sanId;
+
+    const dateInput = document.getElementById('bkDate');
+    if (dateInput) dateInput.value = item.ngayChoi;
+
+    // Xử lý khung giờ cũ
+    if (item.khungGioGoc) {
+        selectedSlots = item.khungGioGoc.split(',').map(Number);
+    } else {
+        selectedSlots = [];
+    }
+
+    // Đổi Text giao diện
+    const modalTitle = document.querySelector('#bookingModal .auth-title');
+    if (modalTitle) modalTitle.innerText = "Yêu cầu chỉnh sửa đơn";
+
+    const btnSubmit = document.getElementById('btnSubmitBookingMain');
+    if (btnSubmit) btnSubmit.innerText = "Gửi Yêu Cầu Sửa";
+
+    const btnBack = document.getElementById('btnBackToHistory');
+    if (btnBack) btnBack.style.display = 'block';
+
+    closeModal('historyModal');
+    openModal('bookingModal');
+
+    // Gọi tải lại lưới giờ để check xem khung giờ cũ có bị trùng không
+    fetchBookedSlots();
+}
+
+// Xử lý nút Reset khi tắt Popup Sửa (để các lần bấm Đặt Sân tiếp theo không bị dính cờ Edit)
+function closeBookingModal() {
+    closeModal('bookingModal');
+    isEditMode = false;
+    editTargetBookingId = 0;
+
+    const modalTitle = document.querySelector('#bookingModal .auth-title');
+    if (modalTitle) modalTitle.innerText = "Đặt sân";
+
+    const btnSubmit = document.getElementById('btnSubmitBookingMain');
+    if (btnSubmit) btnSubmit.innerText = "Đặt Sân";
+
+    const btnBack = document.getElementById('btnBackToHistory');
+    if (btnBack) btnBack.style.display = 'none';
+
+    // Nếu khách đang xem lịch sử thì trả khách về Lịch sử
+    if (userHistoryData.length > 0) {
+        openModal('historyModal');
+    }
 }

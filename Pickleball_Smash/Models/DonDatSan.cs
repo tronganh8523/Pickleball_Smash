@@ -15,6 +15,9 @@
         public NguoiDung? NguoiDung { get; set; }
         public SanPickleball? SanPickleball { get; set; }
         public Voucher? Voucher { get; set; }
+        public bool YeuCauHuy { get; set; } = false;
+        public bool YeuCauSua { get; set; } = false;
+        public string? NoiDungSua { get; set; }
         public ICollection<ThanhToan>? ThanhToans { get; set; }
     }
 }

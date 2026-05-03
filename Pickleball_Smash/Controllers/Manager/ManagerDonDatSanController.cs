@@ -25,6 +25,7 @@ namespace Pickleball_Smash.Controllers
                 .AsNoTracking()
                 .Include(d => d.SanPickleball)
                 .Include(d => d.NguoiDung)
+                .Include(d => d.ThanhToans)
                 .Where(d => d.TrangThaiDon == null || (d.TrangThaiDon != "Hoàn thành" && d.TrangThaiDon != "Đã hủy"))
                 .OrderByDescending(d => d.NgayTao)
                 .ToListAsync();
@@ -188,15 +189,44 @@ namespace Pickleball_Smash.Controllers
             if (!HasManagerAccess()) return NotFound();
             if (request == null || request.SanID <= 0 || request.BookingID <= 0) return BadRequest(new { success = false, message = "Dữ liệu hủy đơn không hợp lệ." });
 
-            var donDat = await _context.DonDatSan.FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
+            var donDat = await _context.DonDatSan.Include(d => d.ThanhToans).FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
             if (donDat == null) return NotFound(new { success = false, message = "Không tìm thấy đơn đặt sân." });
-            if (!string.Equals(donDat.TrangThaiDon?.Trim(), "Chờ xác nhận", StringComparison.OrdinalIgnoreCase)) return BadRequest(new { success = false, message = "Chỉ có thể hủy đơn đang chờ xác nhận." });
 
-            donDat.TrangThaiDon = "Đã hủy";
+            // Tính toán thời gian
+            var hours = donDat.KhungGio?.Split(',').Select(p => int.TryParse(p.Trim(), out var h) ? h : -1).Where(h => h >= 0).OrderBy(h => h).ToList();
+            if (hours == null || !hours.Any() || !donDat.NgayChoi.HasValue) return BadRequest(new { success = false, message = "Lỗi dữ liệu thời gian sân." });
+
+            var earliestHour = hours.First();
+            var playDateTime = donDat.NgayChoi.Value.ToDateTime(new TimeOnly(earliestHour, 0));
+            var timeDiff = (playDateTime - DateTime.Now).TotalMinutes;
+
+            decimal daThanhToan = donDat.ThanhToans?.Sum(t => t.SoTien) ?? 0;
+            string thongBao = "";
+
+            if (daThanhToan > 0)
+            {
+                if (timeDiff < 60)
+                {
+                    donDat.TrangThaiDon = "Đã hủy"; // Khách mất cọc/tiền
+                    thongBao = "Đã hủy đơn. Gần sát giờ chơi (dưới 60 phút) nên KHÔNG hoàn tiền.";
+                }
+                else
+                {
+                    donDat.TrangThaiDon = "Đã hoàn tiền"; // Khách được hoàn
+                    thongBao = $"Đã hủy và hoàn lại {daThanhToan:N0}đ cho khách.";
+                }
+            }
+            else
+            {
+                donDat.TrangThaiDon = "Đã hủy";
+                thongBao = "Đã hủy đơn.";
+            }
+
+            donDat.YeuCauHuy = false; // Tắt cờ yêu cầu
             _context.DonDatSan.Update(donDat);
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, message = "Đã hủy đơn đặt sân." });
+            return Ok(new { success = true, message = thongBao });
         }
 
         [HttpGet]
@@ -378,6 +408,8 @@ namespace Pickleball_Smash.Controllers
             donDat.NgayChoi = ngayChoi;
             donDat.KhungGio = khungGioStr;
             donDat.TongTien = tongTien;
+            donDat.YeuCauSua = false; 
+            donDat.NoiDungSua = null;
 
             _context.DonDatSan.Update(donDat);
             await _context.SaveChangesAsync();
@@ -485,6 +517,60 @@ namespace Pickleball_Smash.Controllers
                     priceByHour
                 }
             });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CheckInCourt([FromBody] ManagerCheckoutCourtRequest request)
+        {
+            if (!HasManagerAccess()) return NotFound();
+            if (request == null || request.SanID <= 0 || request.BookingID <= 0) return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ." });
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var donDat = await _context.DonDatSan
+                    .Include(x => x.ThanhToans)
+                    .FirstOrDefaultAsync(x => x.DonDatSanID == request.BookingID && x.SanID == request.SanID);
+
+                if (donDat == null) return NotFound(new { success = false, message = "Không tìm thấy đơn đặt sân." });
+                if (!string.Equals(donDat.TrangThaiDon?.Trim(), "Đã xác nhận", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { success = false, message = "Chỉ có thể Check-in đơn đã xác nhận." });
+
+                // Đổi trạng thái sang Đang chơi
+                donDat.TrangThaiDon = "Đang chơi";
+
+                // Kiểm tra xem đã thanh toán đủ chưa
+                decimal daThanhToan = donDat.ThanhToans?.Sum(t => t.SoTien) ?? 0;
+                decimal tongTien = donDat.TongTien ?? 0;
+
+                // Nếu mới thanh toán cọc (chưa đủ tổng tiền) -> Sinh thêm log Thu tiền mặt phần còn thiếu
+                if (daThanhToan != tongTien)
+                {
+                    var payment = new ThanhToan
+                    {
+                        DonDatSanID = donDat.DonDatSanID,
+                        PhuongThuc = daThanhToan < tongTien ? "Tiền mặt tại quầy (Thu thêm)" : "Hoàn tiền mặt",
+                        // Nếu hoàn trả, (tongTien - daThanhToan) sẽ ra SỐ ÂM. 
+                        // DB lưu số âm là hoàn toàn chuẩn xác để hàm Sum() tiền cộng lại khớp 100%!
+                        SoTien = tongTien - daThanhToan,
+                        MaGiaoDich = $"MGR-PAY-{donDat.DonDatSanID}-{DateTime.Now:yyyyMMddHHmmss}",
+                        TrangThai = daThanhToan < tongTien ? "Đã thanh toán" : "Đã hoàn tiền",
+                        NgayThanhToan = DateTime.Now
+                    };
+                    _context.ThanhToan.Add(payment);
+                }
+
+                _context.DonDatSan.Update(donDat);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { success = true, message = "Check-in thành công! Đã ghi nhận thu đủ tiền." });
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "Đã xảy ra lỗi khi Check-in." });
+            }
         }
 
         private bool HasManagerAccess()

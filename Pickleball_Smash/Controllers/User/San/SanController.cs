@@ -201,16 +201,30 @@ namespace Pickleball_Smash.Controllers.User.San
 
                     donDat.SoTienGiam = soTienGiam;
                     donDat.TongTien = Math.Max(0m, (donDat.TongTien ?? 0m) - soTienGiam);
+
+                    // Trạng thái đơn chuyển sang chờ quản lý xác nhận
                     donDat.TrangThaiDon = "Chờ xác nhận";
 
                     var hasPayment = await _context.ThanhToan.AnyAsync(x => x.DonDatSanID == donDat.DonDatSanID);
                     if (!hasPayment)
                     {
+                        // ========================================================
+                        // LOGIC XỬ LÝ SỐ TIỀN THANH TOÁN (50% HOẶC 100%) Ở ĐÂY
+                        // ========================================================
+                        decimal tienThanhToanThucTe = donDat.TongTien ?? 0m;
+
+                        // Kiểm tra nếu khách hàng chọn Đặt Cọc 50% thì chia đôi số tiền
+                        if (request.PaymentType == "Coc50")
+                        {
+                            tienThanhToanThucTe = tienThanhToanThucTe / 2m;
+                        }
+
                         var payment = new ThanhToan
                         {
                             DonDatSanID = donDat.DonDatSanID,
                             PhuongThuc = "Online",
-                            SoTien = donDat.TongTien ?? 0,
+                            // Ghi nhận đúng số tiền khách đã chuyển (50% hoặc 100%) vào DB
+                            SoTien = tienThanhToanThucTe,
                             MaGiaoDich = $"USR-{donDat.DonDatSanID}-{DateTime.Now:yyyyMMddHHmmss}",
                             TrangThai = "Đã thanh toán",
                             NgayThanhToan = DateTime.Now
@@ -332,7 +346,7 @@ namespace Pickleball_Smash.Controllers.User.San
             var userId = HttpContext.Session.GetInt32("UserID");
             if (userId == null) return Unauthorized();
 
-            var validStatuses = new[] { "Chờ xác nhận", "Đã xác nhận", "Hoàn thành", "Đã thanh toán" };
+            var validStatuses = new[] { "Chờ xác nhận", "Đã xác nhận", "Đang chơi", "Hoàn thành", "Đã thanh toán", "Đã hủy", "Đã hoàn tiền" };
 
             // Lấy lịch sử đơn đặt sân
             // 1. Thêm Include(d => d.NguoiDung) để lấy thông tin khách hàng
@@ -373,6 +387,8 @@ namespace Pickleball_Smash.Controllers.User.San
                     tongTien = d.TongTien,
                     soTienGiam = d.SoTienGiam ?? 0,
                     trangThai = d.TrangThaiDon,
+                    yeuCauHuy = d.YeuCauHuy,
+                    yeuCauSua = d.YeuCauSua,
                     daDanhGia = review != null,
                     soSao = review != null ? review.SoSao : 5,
                     binhLuan = review != null ? review.BinhLuan : "",
@@ -382,6 +398,66 @@ namespace Pickleball_Smash.Controllers.User.San
             }).ToList();
 
             return Json(result);
+        }
+        [HttpPost]
+        public async Task<IActionResult> RequestEditBooking([FromBody] EditBookingRequest request)
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Json(new { success = false, message = "Vui lòng đăng nhập" });
+
+            var don = await _context.DonDatSan.Include(d => d.ThanhToans).FirstOrDefaultAsync(d => d.DonDatSanID == request.BookingID && d.NguoiDungID == userId);
+            if (don == null) return Json(new { success = false, message = "Không tìm thấy đơn." });
+
+            // Tính toán bù trừ
+            decimal daThanhToan = don.ThanhToans?.Sum(t => t.SoTien) ?? 0;
+            decimal tongTienMoi = request.TongTien;
+
+            string msg = "";
+            if (tongTienMoi > daThanhToan)
+            {
+                msg = $"Hệ thống ghi nhận bạn cần thanh toán thêm {(tongTienMoi - daThanhToan):N0}đ khi check-in.";
+            }
+            else if (tongTienMoi < daThanhToan)
+            {
+                msg = $"Hệ thống ghi nhận bạn sẽ được hoàn lại {(daThanhToan - tongTienMoi):N0}đ khi check-in.";
+            }
+            else
+            {
+                msg = "Không phát sinh chênh lệch chi phí.";
+            }
+
+            don.YeuCauSua = true;
+            var tenSan = await _context.SanPickleball.Where(s => s.SanID == request.SanID).Select(s => s.TenSan).FirstOrDefaultAsync();
+            don.NoiDungSua = $"Đổi thành: {tenSan}, Ngày {request.NgayDat:dd/MM/yyyy}, Giờ: {string.Join(", ", request.SelectedHours)}. {msg}";
+
+            _context.DonDatSan.Update(don);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = $"Đã gửi yêu cầu sửa đến quản lý! {msg}" });
+        }
+
+        // Model nhận dữ liệu
+        
+        [HttpPost]
+        public async Task<IActionResult> ToggleCancelRequest([FromBody] CancelRequestModel request)
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Json(new { success = false, message = "Vui lòng đăng nhập!" });
+
+            var don = await _context.DonDatSan.FirstOrDefaultAsync(d => d.DonDatSanID == request.DonDatSanID && d.NguoiDungID == userId);
+            if (don == null) return Json(new { success = false, message = "Không tìm thấy đơn." });
+
+            don.YeuCauHuy = request.IsRequesting;
+            _context.DonDatSan.Update(don);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        public class CancelRequestModel
+        {
+            public int DonDatSanID { get; set; }
+            public bool IsRequesting { get; set; } // true: Gửi yêu cầu, false: Thu hồi
         }
         [HttpPost]
         public async Task<IActionResult> SubmitReview([FromBody] ReviewRequest request)
@@ -592,6 +668,7 @@ namespace Pickleball_Smash.Controllers.User.San
     {
         public List<int> BookingIds { get; set; } = new();
         public string? VoucherCode { get; set; }
+        public string? PaymentType { get; set; } // THÊM DÒNG NÀY (VD: "Coc50" hoặc "Full")
     }
 
     public class ValidateVoucherRequest
@@ -605,5 +682,13 @@ namespace Pickleball_Smash.Controllers.User.San
         public string? VoucherCode { get; set; }
         public decimal TotalAmount { get; set; }
         public int BookingCount { get; set; }
+    }
+    public class EditBookingRequest
+    {
+        public int BookingID { get; set; }
+        public int SanID { get; set; }
+        public DateTime NgayDat { get; set; }
+        public List<int> SelectedHours { get; set; } = new();
+        public decimal TongTien { get; set; }
     }
 }
