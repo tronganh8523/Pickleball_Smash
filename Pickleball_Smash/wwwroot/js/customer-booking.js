@@ -1211,3 +1211,69 @@ function closeBookingModal() {
         openModal('historyModal');
     }
 }
+// ================= LOGIC YÊU CẦU HỦY =================
+let currentCancelBookingId = 0;
+
+function openCancelRequestModal(index, isRevokeMode) {
+    const item = userHistoryData[index];
+    if (!item) return;
+    currentCancelBookingId = item.donDatSanId;
+
+    // Tính toán thời gian chênh lệch (Cảnh báo 60 phút)
+    let timeDiffMsg = "";
+    if (!isRevokeMode && item.ngayChoi && item.khungGioGoc) {
+        try {
+            const dateParts = item.ngayChoi.split('-'); // Lấy mảng [yyyy, MM, dd]
+            const hours = item.khungGioGoc.split(',').map(Number).sort((a, b) => a - b);
+
+            if (dateParts.length === 3 && hours.length > 0) {
+                const firstHour = hours[0];
+                // Tạo đối tượng Date cho giờ nhận sân (Tháng trong JS bắt đầu từ 0 nên phải -1)
+                const playDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], firstHour, 0, 0);
+                const now = new Date();
+
+                // Tính số phút chênh lệch
+                const diffMinutes = (playDate - now) / (1000 * 60);
+
+                if (diffMinutes < 60) {
+                    timeDiffMsg = "<br><br><span style='color: #dc3545; font-weight: bold; padding: 10px; background: #fde8e8; border-radius: 5px; display: inline-block;'><i class='fas fa-exclamation-triangle'></i> CẢNH BÁO: Hiện tại cách giờ chơi chưa tới 60 phút. Nếu bạn hủy đơn lúc này, bạn sẽ KHÔNG ĐƯỢC HOÀN TIỀN.</span>";
+                } else {
+                    timeDiffMsg = "<br><br><span style='color: #28a745; font-weight: bold;'><i class='fas fa-info-circle'></i> Hủy đơn hợp lệ (trước 60 phút): Bạn sẽ được hoàn lại tiền (nếu có).</span>";
+                }
+            }
+        } catch (e) { console.error("Lỗi tính thời gian", e); }
+    }
+
+    if (isRevokeMode) {
+        document.getElementById('crTitle').innerText = "Đã gửi yêu cầu hủy";
+        document.getElementById('crMessage').innerHTML = "Yêu cầu của bạn đang được nhân viên xử lý. Bạn có muốn thu hồi lại yêu cầu này không?";
+        document.getElementById('crBtnGroupNormal').style.display = 'none';
+        document.getElementById('crBtnGroupRevoke').style.display = 'flex';
+    } else {
+        document.getElementById('crTitle').innerText = "Xác nhận hủy đơn";
+        document.getElementById('crMessage').innerHTML = "Bạn có chắc chắn muốn gửi yêu cầu hủy đơn đặt sân này đến nhân viên không?" + timeDiffMsg;
+        document.getElementById('crBtnGroupNormal').style.display = 'flex';
+        document.getElementById('crBtnGroupRevoke').style.display = 'none';
+    }
+
+    closeModal('historyModal');
+    openModal('cancelRequestModal');
+}
+
+function submitCancelRequest(isRequesting) {
+    fetch('/San/ToggleCancelRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ DonDatSanID: currentCancelBookingId, IsRequesting: isRequesting })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                closeModal('cancelRequestModal');
+                loadHistory(); // Tự động tải lại bảng lịch sử để cập nhật trạng thái
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(err => alert("Lỗi kết nối đến máy chủ. Vui lòng thử lại!"));
+}
