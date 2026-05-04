@@ -128,25 +128,71 @@ namespace Pickleball_Smash.Controllers.User.San
             if (request.SelectedHours == null || !request.SelectedHours.Any())
                 return Json(new { success = false, message = "Vui lòng chọn ít nhất 1 khung giờ" });
 
-            string chuoiKhungGio = string.Join(",", request.SelectedHours.OrderBy(h => h));
-
-            int? currentUserId = HttpContext.Session.GetInt32("UserID");
-
-            var donDat = new DonDatSan
+            // BẮT ĐẦU TRANSACTION: Xếp hàng xử lý để chống đụng độ (Race Condition)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                NguoiDungID = userId.Value,
-                SanID = request.SanID,
-                NgayChoi = DateOnly.FromDateTime(request.NgayDat),
-                KhungGio = chuoiKhungGio,
-                TongTien = request.TongTien,
-                TrangThaiDon = "Chờ thanh toán",
-                NgayTao = DateTime.Now
-            };
+                DateOnly targetDate = DateOnly.FromDateTime(request.NgayDat);
 
-            _context.DonDatSan.Add(donDat);
-            await _context.SaveChangesAsync();
+                // BƯỚC 1: KIỂM TRA TRÙNG LẶP (OVERLAP CHECK)
+                // Kéo tất cả các đơn của sân này trong ngày hôm đó (Trừ các đơn đã hủy/hoàn tiền/thất bại)
+                var existingBookings = await _context.DonDatSan
+                    .Where(b => b.SanID == request.SanID
+                             && b.NgayChoi == targetDate
+                             && b.TrangThaiDon != "Đã hủy"
+                             && b.TrangThaiDon != "Đã hoàn tiền"
+                             && b.TrangThaiDon != "Thất bại")
+                    .ToListAsync();
 
-            return Json(new { success = true, bookingIds = new[] { donDat.DonDatSanID } });
+                // Gom tất cả các khung giờ đã có người đặt vào 1 danh sách
+                var occupiedHours = new List<int>();
+                foreach (var b in existingBookings)
+                {
+                    if (!string.IsNullOrEmpty(b.KhungGio))
+                    {
+                        var hours = b.KhungGio.Split(',')
+                                              .Select(h => int.TryParse(h.Trim(), out var val) ? val : -1)
+                                              .Where(h => h >= 0);
+                        occupiedHours.AddRange(hours);
+                    }
+                }
+
+                // Dùng phép giao (Intersect) xem giờ khách đang chọn có dính vào giờ đã bị đặt không
+                var conflicts = request.SelectedHours.Intersect(occupiedHours).ToList();
+                if (conflicts.Any())
+                {
+                    // Nếu có đụng độ -> Hủy bỏ ngay lập tức và báo lỗi
+                    return Json(new { success = false, message = "Rất tiếc! Khung giờ này vừa có người khác nhanh tay đặt mất. Vui lòng chọn giờ khác nhé." });
+                }
+
+                // BƯỚC 2: NẾU AN TOÀN -> TIẾN HÀNH LƯU VÀO DATABASE
+                string chuoiKhungGio = string.Join(",", request.SelectedHours.OrderBy(h => h));
+
+                var donDat = new DonDatSan
+                {
+                    NguoiDungID = userId.Value,
+                    SanID = request.SanID,
+                    NgayChoi = targetDate,
+                    KhungGio = chuoiKhungGio,
+                    TongTien = request.TongTien,
+                    TrangThaiDon = "Chờ thanh toán",
+                    NgayTao = DateTime.Now
+                };
+
+                _context.DonDatSan.Add(donDat);
+                await _context.SaveChangesAsync();
+
+                // BƯỚC 3: XÁC NHẬN TRANSACTION THÀNH CÔNG
+                await transaction.CommitAsync();
+
+                return Json(new { success = true, bookingIds = new[] { donDat.DonDatSanID } });
+            }
+            catch (Exception ex)
+            {
+                // Rút lại toàn bộ thao tác nếu xảy ra lỗi Database
+                await transaction.RollbackAsync();
+                return Json(new { success = false, message = "Đã xảy ra lỗi hệ thống khi đặt sân. Vui lòng thử lại!" });
+            }
         }
 
         [HttpPost]
