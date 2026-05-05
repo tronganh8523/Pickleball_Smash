@@ -22,6 +22,9 @@ function closeModal(id) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+    await loadAllCourtsForDropdown();
+
     const todayStr = new Date().toISOString().split('T')[0];
     const bkDateInput = document.getElementById('bkDate');
     const dtDateInput = document.getElementById('dtDate');
@@ -520,7 +523,7 @@ function renderHistoryTable(dataToRender) {
         }
         if (['Chờ xác nhận', 'Đã xác nhận'].includes(item.trangThai)) {
             if (item.yeuCauSua) {
-                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #fd7e14; border: none;"><i class="fas fa-spinner fa-spin"></i> Chờ duyệt sửa</button>`;
+                actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #fd7e14; border: none;" onclick="openRevokeEditModal(${originalIndex})" title="Click để thu hồi yêu cầu sửa"><i class="fas fa-spinner fa-spin"></i> Chờ duyệt sửa</button>`;
             } else {
                 actionHtml += `<button class="btn-primary-blue" style="padding: 6px 10px; font-size: 12px; width: auto; margin-left: 5px; background: #0d6efd; border: none;" onclick="openEditRequestModal(${originalIndex})"><i class="fas fa-edit"></i> Sửa</button>`;
             }
@@ -1305,4 +1308,72 @@ function submitCancelRequest(isRequesting) {
             }
         })
         .catch(err => alert("Lỗi kết nối đến máy chủ. Vui lòng thử lại!"));
+}
+
+// ================= THU HỒI YÊU CẦU SỬA =================
+function openRevokeEditModal(index) {
+    const item = userHistoryData[index];
+    if (!item) return;
+    currentCancelBookingId = item.donDatSanId;
+
+    // Tái sử dụng form UI của Cancel Modal để hiển thị thông điệp Sửa
+    document.getElementById('crTitle').innerText = "Thu hồi yêu cầu sửa";
+    document.getElementById('crMessage').innerHTML = "Bạn có chắc chắn muốn thu hồi lại yêu cầu chỉnh sửa lịch đặt sân này không?";
+
+    document.getElementById('crBtnGroupNormal').style.display = 'none';
+    document.getElementById('crBtnGroupRevoke').style.display = 'flex';
+
+    // Đổi linh hoạt chức năng của nút bấm sang thu hồi Sửa
+    const btnRevoke = document.querySelector('#crBtnGroupRevoke button');
+    btnRevoke.innerText = "Đồng ý thu hồi";
+    btnRevoke.onclick = function () { submitRevokeEdit(); };
+
+    closeModal('historyModal');
+    openModal('cancelRequestModal');
+}
+
+function submitRevokeEdit() {
+    fetch('/San/RevokeEditRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ DonDatSanID: currentCancelBookingId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                closeModal('cancelRequestModal');
+                loadHistory(); // Tự động reload lại bảng lịch sử
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(err => alert("Lỗi kết nối đến máy chủ. Vui lòng thử lại!"));
+}
+
+async function loadAllCourtsForDropdown() {
+    try {
+        const res = await fetch('/San/GetAllCourts');
+        if (res.ok) {
+            const courts = await res.json();
+            const bkSan = document.getElementById('bkSan');
+            if (!bkSan) return;
+
+            const currentValue = bkSan.value; // Giữ lại lựa chọn hiện tại nếu có
+
+            bkSan.innerHTML = '<option value="">--Chọn Sân--</option>';
+            courts.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.sanId;
+                opt.setAttribute('data-price', c.giaCoBan);
+                opt.setAttribute('data-name', c.tenSan);
+                opt.setAttribute('data-type', c.loaiSan);
+                opt.textContent = `${c.tenSan} - ${c.loaiSan}`;
+                bkSan.appendChild(opt);
+            });
+
+            if (currentValue) bkSan.value = currentValue;
+        }
+    } catch (e) {
+        console.error("Lỗi tải danh sách sân cho dropdown", e);
+    }
 }

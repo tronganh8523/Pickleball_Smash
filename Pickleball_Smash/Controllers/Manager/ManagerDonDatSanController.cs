@@ -586,10 +586,11 @@ namespace Pickleball_Smash.Controllers
             var now = DateTime.Now;
             var today = DateOnly.FromDateTime(now);
 
+            // BỔ SUNG: Quét cả đơn "Đã xác nhận" và "Đang chơi"
             var candidates = await _context.DonDatSan
                 .Include(d => d.SanPickleball)
                 .Where(d => d.TrangThaiDon != null
-                    && d.TrangThaiDon.Trim() == "Đã xác nhận"
+                    && (d.TrangThaiDon.Trim() == "Đã xác nhận" || d.TrangThaiDon.Trim() == "Đang chơi")
                     && d.NgayChoi.HasValue)
                 .ToListAsync();
 
@@ -617,12 +618,14 @@ namespace Pickleball_Smash.Controllers
                     {
                         var endHour = hours.Max() + 1;
                         var endTime = now.Date.AddHours(endHour);
+                        // Nếu thời gian hiện tại đã vượt qua giờ kết thúc của ca chơi
                         shouldCheckout = now >= endTime;
                     }
                 }
 
                 if (!shouldCheckout) continue;
 
+                // Tự động chuyển trạng thái đơn và giải phóng sân
                 don.TrangThaiDon = "Hoàn thành";
                 if (don.SanPickleball != null)
                 {
@@ -630,6 +633,7 @@ namespace Pickleball_Smash.Controllers
                     _context.SanPickleball.Update(don.SanPickleball);
                 }
 
+                // Tự động sinh giao dịch thanh toán nếu khách chưa thanh toán (Trường hợp không check-in)
                 var hasPayment = await _context.ThanhToan.AnyAsync(x => x.DonDatSanID == don.DonDatSanID);
                 if (!hasPayment)
                 {

@@ -196,6 +196,40 @@ namespace Pickleball_Smash.Controllers.User.San
         }
 
         [HttpPost]
+        public async Task<IActionResult> RevokeEditRequest([FromBody] CancelRequestModel request)
+        {
+            var userId = HttpContext.Session.GetInt32("UserID");
+            if (userId == null) return Json(new { success = false, message = "Vui lòng đăng nhập!" });
+
+            var don = await _context.DonDatSan.FirstOrDefaultAsync(d => d.DonDatSanID == request.DonDatSanID && d.NguoiDungID == userId);
+            if (don == null) return Json(new { success = false, message = "Không tìm thấy đơn." });
+
+            // Tắt cờ yêu cầu sửa và làm sạch nội dung ghi chú
+            don.YeuCauSua = false;
+            don.NoiDungSua = null;
+
+            _context.DonDatSan.Update(don);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+        [HttpGet]
+        public async Task<IActionResult> GetAllCourts()
+        {
+            // Lấy toàn bộ sân đang hoạt động để đổ vào Dropdown Đặt sân
+            var courts = await _context.SanPickleball
+                .Where(s => s.TrangThai != "Bảo trì" && s.TrangThai != "Ngừng hoạt động")
+                .Select(s => new {
+                    sanId = s.SanID,
+                    tenSan = s.TenSan,
+                    loaiSan = s.LoaiSan,
+                    giaCoBan = s.GiaCoBan
+                })
+                .ToListAsync();
+
+            return Json(courts);
+        }
+        [HttpPost]
         public async Task<IActionResult> ConfirmPayment([FromBody] ConfirmPaymentRequest request)
         {
             if (request?.BookingIds == null || request.BookingIds.Count == 0)

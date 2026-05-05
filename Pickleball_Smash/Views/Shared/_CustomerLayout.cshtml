@@ -122,14 +122,9 @@
                     <input type="date" id="bkDate" class="form-control" onchange="calcTotal()">
 
                     <label>Chọn Sân</label>
-                    <select id="bkSan" class="form-control" onchange="calcTotal()">
-                        <option value="">--Chọn Sân--</option>
-                        @foreach (var san in Model)
-                        {
-                            <option value="@san.SanID" data-price="@san.GiaCoBan" data-name="@san.TenSan" data-type="@san.LoaiSan">@san.TenSan - @san.LoaiSan</option>
-                        }
-                    </select>
-
+<select id="bkSan" class="form-control" onchange="calcTotal()">
+    <option value="">--Chọn Sân--</option>
+</select>
                     <label>Khung giờ (Có thể chọn nhiều)</label>
                     <div id="timeSlotGrid" class="time-slot-grid">
                     </div>
@@ -286,22 +281,22 @@
 </div>
 
             <div class="history-table-wrapper">
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th>Mã hoá đơn</th>
-                            <th>Ngày thanh toán</th>
-                            <th>Loại sân</th>
-                            <th>Khung giờ</th>
-                            <th>Tổng tiền</th>
-                            <th>Trạng thái</th>
-                            <th>Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyTableBody">
-                    </tbody>
-                </table>
-            </div>
+    <table class="history-table" style="width: 100%;">
+        <thead>
+            <tr>
+                <th style="width: 9%;">Mã hoá đơn</th>
+                <th style="width: 13%;">Ngày thanh toán</th>
+                <th style="width: 10%;;">Loại sân</th>
+                <th style="width: 15%;">Khung giờ</th>
+                <th style="width: 11%;">Tổng tiền</th>
+                <th style="width: 16%;">Trạng thái</th>
+                <th style="width: 26%; text-align: center;">Hành động</th>
+            </tr>
+        </thead>
+        <tbody id="historyTableBody">
+        </tbody>
+    </table>
+</div>
         </div>
     </div>
 
