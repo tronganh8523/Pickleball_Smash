@@ -956,40 +956,69 @@ function viewCustomerInvoice(index) {
 }
 
 function downloadInvoicePDF(invoiceId) {
-    const element = document.getElementById('invoicePrintArea');
+    const originalElement = document.getElementById('invoicePrintArea');
 
-    // Cấu hình thư viện html2pdf
+    // 1. TẠO VÙNG CHỨA BẢN SAO 
+    const printContainer = document.createElement('div');
+    printContainer.style.position = 'absolute';
+    printContainer.style.top = '0';
+    printContainer.style.left = '0';
+    printContainer.style.width = '100%';
+    // BÍ QUYẾT MỚI: Dùng z-index âm để giấu sau lưng Modal, KHÔNG dùng tọa độ âm (-9999px) nữa
+    printContainer.style.zIndex = '-1';
+
+    // 2. TẠO BẢN SAO ĐỂ IN
+    const cloneElement = originalElement.cloneNode(true);
+    cloneElement.style.width = '500px';
+    cloneElement.style.margin = '0 auto'; // Căn giữa
+    cloneElement.style.background = '#fff'; // Đảm bảo nền trắng hoàn toàn
+
+    printContainer.appendChild(cloneElement);
+    document.body.appendChild(printContainer);
+
+    // Mẹo nhỏ: Ép trình duyệt cuộn lên trên cùng để html2canvas không bị lệch tọa độ y
+    const currentScrollY = window.scrollY;
+    window.scrollTo(0, 0);
+
+    // 3. CẤU HÌNH THƯ VIỆN
     const opt = {
         margin: [15, 15, 15, 15],
         filename: `HoaDon_PickleballSmash_${invoiceId}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            scrollY: 0
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     if (typeof html2pdf === 'undefined') {
         alert("Đang tải thư viện tạo PDF, vui lòng thử lại sau vài giây.");
+        document.body.removeChild(printContainer);
         return;
     }
 
-    // Hiệu ứng UX: Đổi text nút trong lúc tải
+    // Hiệu ứng UX (Đổi nút thành Đang tải)
     const btnPrint = document.getElementById('cusBtnPrintPdf');
     const originalText = btnPrint.innerHTML;
     btnPrint.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tạo PDF...';
     btnPrint.style.pointerEvents = 'none';
 
-    // Tạo và tải PDF kèm theo bắt lỗi (catch)
-    html2pdf().set(opt).from(element).save()
+    // 4. XUẤT PDF TỪ BẢN SAO VÀ DỌN DẸP
+    html2pdf().set(opt).from(cloneElement).save()
         .then(() => {
-            // Khi thành công hoặc người dùng đã đóng hộp thoại save
             btnPrint.innerHTML = originalText;
             btnPrint.style.pointerEvents = 'auto';
+            document.body.removeChild(printContainer); // Xóa bản sao ẩn đi
+            window.scrollTo(0, currentScrollY); // Trả lại vị trí cuộn cũ cho khách hàng
         })
         .catch(err => {
-            // Khi có lỗi hoặc luồng bị gián đoạn
             console.error("Lỗi xuất PDF:", err);
             btnPrint.innerHTML = originalText;
             btnPrint.style.pointerEvents = 'auto';
+            document.body.removeChild(printContainer);
+            window.scrollTo(0, currentScrollY);
             alert("Quá trình xuất PDF bị gián đoạn. Vui lòng thử lại!");
         });
 }
